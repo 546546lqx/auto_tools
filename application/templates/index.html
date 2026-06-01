@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}首页 - YOLO 数据工具箱{% endblock %}
+{% block content %}
+<div class="row g-4">
+  {% for title, desc, endpoint, btn in [
+    ('统计', '统计 YOLO 标注类别、总框数和空文件。', 'stats.stats_page', '进入统计'),
+    ('清理', '预览或清理孤立图片、孤立标注文件。', 'stats.cleanup_page', '进入清理'),
+    ('划分', '将数据集按比例划分为 train / val / test。', 'split.split_page', '进入划分'),
+    ('重命名', '批量重命名图片与标注文件。', 'split.rename_page', '进入重命名'),
+    ('格式转换', '将 VOC 等格式转换为 YOLO。', 'convert.convert_page', '进入转换'),
+    ('视频与 RTSP', '对视频或 RTSP 源进行抽帧处理。', 'video.video_page', '进入视频'),
+    ('多边形标注', '进行多边形标注并导出点位信息。', 'polygon.polygon_page', '进入标注')
+  ] %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card h-100 shadow-sm feature-card">
+      <div class="card-body d-flex flex-column">
+        <h5 class="card-title">{{ title }}</h5>
+        <p class="card-text text-muted">{{ desc }}</p>
+        <div class="mt-auto">
+          <a class="btn btn-primary" href="{{ url_for(endpoint) }}">{{ btn }}</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

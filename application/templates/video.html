@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}视频与RTSP - YOLO 数据工具箱{% endblock %}
+{% block content %}
+<h3 class="mb-4">视频与RTSP</h3>
+{% if result %}
+<div class="alert alert-{{ 'success' if result.success else 'danger' }}">{{ result.message }}</div>
+{% endif %}
+<form method="post" class="card p-4 shadow-sm mb-4">
+  <div class="mb-3">
+    <label class="form-label">RTSP 地址或本地视频文件路径</label>
+    <input type="text" name="source" class="form-control" value="{{ form.get('source', '') }}" placeholder="例如：rtsp://... 或 D:/video.mp4" required>
+    <div class="form-text text-muted">请复制本地文件夹完整路径并粘贴到输入框中</div>
+  </div>
+  <div class="row g-3 mb-3">
+    <div class="col-md-4">
+      <label class="form-label">帧间隔</label>
+      <input type="number" name="interval" class="form-control" value="{{ form.get('interval', '30') }}">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">输出格式</label>
+      <select name="output_format" class="form-select">
+        <option value="jpg" {% if form.get('output_format', 'jpg') == 'jpg' %}selected{% endif %}>jpg</option>
+        <option value="png" {% if form.get('output_format') == 'png' %}selected{% endif %}>png</option>
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">输出目录</label>
+      <input type="text" name="output_dir" class="form-control" value="{{ form.get('output_dir', '') }}" placeholder="例如：D:/frames" required>
+    </div>
+  </div>
+  <button type="submit" class="btn btn-success">执行抽帧</button>
+</form>
+{% if result and result.data %}
+<div class="card p-3 shadow-sm mb-3">
+  <div class="mb-2 fw-bold">结果详情</div>
+  <pre>{{ result.data | tojson(indent=2) }}</pre>
+</div>
+{% endif %}
+{% endblock %}

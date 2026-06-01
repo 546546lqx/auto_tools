@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}格式转换 - YOLO 数据工具箱{% endblock %}
+{% block content %}
+<h3 class="mb-4">格式转换</h3>
+{% if result %}
+<div class="alert alert-{{ 'success' if result.success else 'danger' }}">{{ result.message }}</div>
+{% endif %}
+<form method="post" class="card p-4 shadow-sm mb-4">
+  <div class="mb-3">
+    <label class="form-label">来源格式</label>
+    <select name="source_format" class="form-select">
+      <option value="VOC" {% if form.get('source_format', 'VOC') == 'VOC' %}selected{% endif %}>VOC</option>
+      <option value="COCO" {% if form.get('source_format') == 'COCO' %}selected{% endif %}>COCO</option>
+    </select>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">输入目录</label>
+    <input type="text" name="input_dir" class="form-control" value="{{ form.get('input_dir', '') }}" placeholder="例如：D:/dataset/Annotations" required>
+    <div class="form-text text-muted">请复制本地文件夹完整路径并粘贴到输入框中</div>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">输出目录</label>
+    <input type="text" name="output_dir" class="form-control" value="{{ form.get('output_dir', '') }}" placeholder="可选：D:/dataset/labels">
+    <div class="form-text text-muted">请复制本地文件夹完整路径并粘贴到输入框中</div>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">类别映射文本</label>
+    <textarea name="class_mapping_text" class="form-control" rows="5" placeholder="例如：person->0\ncar->1">{{ form.get('class_mapping_text', '') }}</textarea>
+  </div>
+  <button type="submit" class="btn btn-success">执行转换</button>
+</form>
+{% if result and result.data %}
+<div class="card p-3 shadow-sm mb-3">
+  <div class="mb-2 fw-bold">结果详情</div>
+  <pre>{{ result.data | tojson(indent=2) }}</pre>
+</div>
+{% endif %}
+{% if result and result.debug %}
+<div class="card p-3 shadow-sm">
+  <div class="mb-2 fw-bold">调试日志</div>
+  <pre>{{ result.debug }}</pre>
+</div>
+{% endif %}
+{% endblock %}

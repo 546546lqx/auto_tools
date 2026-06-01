@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}清理 - YOLO 数据工具箱{% endblock %}
+{% block content %}
+<h3 class="mb-4">清理</h3>
+{% if result %}
+<div class="alert alert-{{ 'success' if result.success else 'danger' }}">{{ result.message }}</div>
+{% endif %}
+<form method="post" class="card p-4 shadow-sm mb-4">
+  <div class="mb-3">
+    <label class="form-label">images 目录路径</label>
+    <input type="text" name="images_dir" class="form-control" value="{{ form.get('images_dir', '') }}" placeholder="例如：D:/dataset/images" required>
+    <div class="form-text text-muted">请复制本地文件夹完整路径并粘贴到输入框中</div>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">labels 目录路径</label>
+    <input type="text" name="labels_dir" class="form-control" value="{{ form.get('labels_dir', '') }}" placeholder="例如：D:/dataset/labels" required>
+    <div class="form-text text-muted">请复制本地文件夹完整路径并粘贴到输入框中</div>
+  </div>
+  <div class="form-check mb-3">
+    <input class="form-check-input" type="checkbox" name="preview_only" id="preview_only" {% if form.get('preview_only') %}checked{% endif %}>
+    <label class="form-check-label" for="preview_only">仅预览，不删除</label>
+  </div>
+  <button type="submit" class="btn btn-warning">清理冗余</button>
+</form>
+{% if result and result.data %}
+<div class="card p-3 shadow-sm mb-3">
+  <div class="mb-2 fw-bold">结果详情</div>
+  <pre>{{ result.data | tojson(indent=2) }}</pre>
+</div>
+{% endif %}
+{% if result and result.debug %}
+<div class="card p-3 shadow-sm">
+  <div class="mb-2 fw-bold">调试日志</div>
+  <pre>{{ result.debug }}</pre>
+</div>
+{% endif %}
+{% endblock %}
