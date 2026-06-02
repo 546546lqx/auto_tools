@@ -2,3 +2,11 @@ body { background: #f8fafc; }
 .feature-card { transition: transform .2s ease, box-shadow .2s ease; border-radius: 1rem; }
 .feature-card:hover { transform: translateY(-4px); box-shadow: 0 .75rem 1.5rem rgba(0,0,0,.12); }
 .card { border-radius: 1rem; }
+.path-picker-row{display:flex;gap:10px;align-items:flex-end}
+.path-picker-row .grow{flex:1}
+.path-picker-btn{white-space:nowrap;min-width:110px}
+.path-preview{margin-top:8px;padding:10px 12px;border:1px dashed #cbd5e1;border-radius:12px;background:#f8fafc;color:#475569;font-size:.88rem;word-break:break-all}
+.path-preview.empty{color:#94a3b8}
+.tool-shell.single .tool-pane{max-width:100%}
+.tool-pane .card-body{overflow:auto}
+

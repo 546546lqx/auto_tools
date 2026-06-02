@@ -1,6 +1,18 @@
 {% extends 'base.html' %}
 {% block title %}首页 - YOLO 数据工具箱{% endblock %}
 {% block content %}
+<div class="card hero-card p-4 mb-4">
+  <div class="d-flex flex-column gap-2">
+    <div class="small" style="letter-spacing:.14em;text-transform:uppercase;opacity:.88;">YOLO 数据工具箱</div>
+    <h1 class="tool-page-title">快速处理数据集、视频与标注的本地工具面板</h1>
+    <p class="tool-subtitle" style="color:rgba(255,255,255,.84)">首页保留完整展示感，其它页面采用更紧凑的工具布局，尽量在单屏内完成操作。</p>
+    <div class="hero-grid">
+      <div class="hero-stat"><strong>更少滚动</strong><span>常用页面尽量压缩到视口内</span></div>
+      <div class="hero-stat"><strong>更快操作</strong><span>关键输入与结果紧凑排布</span></div>
+      <div class="hero-stat"><strong>更好阅读</strong><span>结果面板独立滚动，不影响表单</span></div>
+    </div>
+  </div>
+</div>
 <div class="row g-4">
   {% for title, desc, endpoint, btn in [
     ('统计', '统计 YOLO 标注类别、总框数和空文件。', 'stats.stats_page', '进入统计'),
@@ -12,10 +24,12 @@
     ('多边形标注', '进行多边形标注并导出点位信息。', 'polygon.polygon_page', '进入标注')
   ] %}
   <div class="col-md-6 col-lg-4">
-    <div class="card h-100 shadow-sm feature-card">
-      <div class="card-body d-flex flex-column">
-        <h5 class="card-title">{{ title }}</h5>
-        <p class="card-text text-muted">{{ desc }}</p>
+    <div class="card h-100 feature-card">
+      <div class="card-body d-flex flex-column gap-3">
+        <div>
+          <h5 class="mb-2">{{ title }}</h5>
+          <p class="text-muted mb-0">{{ desc }}</p>
+        </div>
         <div class="mt-auto">
           <a class="btn btn-primary" href="{{ url_for(endpoint) }}">{{ btn }}</a>
         </div>

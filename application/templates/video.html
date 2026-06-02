@@ -1,39 +1,66 @@
 {% extends 'base.html' %}
 {% block title %}视频与RTSP - YOLO 数据工具箱{% endblock %}
 {% block content %}
-<h3 class="mb-4">视频与RTSP</h3>
-{% if result %}
-<div class="alert alert-{{ 'success' if result.success else 'danger' }}">{{ result.message }}</div>
-{% endif %}
-<form method="post" class="card p-4 shadow-sm mb-4">
-  <div class="mb-3">
-    <label class="form-label">RTSP 地址或本地视频文件路径</label>
-    <input type="text" name="source" class="form-control" value="{{ form.get('source', '') }}" placeholder="例如：rtsp://... 或 D:/video.mp4" required>
-    <div class="form-text text-muted">请复制本地文件夹完整路径并粘贴到输入框中</div>
+<div class="tool-shell single">
+  <div class="tool-pane tool-scroll">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+          <div>
+            <h3 class="tool-page-title">视频与 RTSP</h3>
+            <p class="tool-subtitle">将抽帧参数和输出结果分离，让主表单在一屏内更完整地显示。</p>
+          </div>
+        </div>
+        {% if result %}
+        <div class="alert alert-{{ 'success' if result.success else 'danger' }}">{{ result.message }}</div>
+        {% endif %}
+        <form method="post" class="tool-compact d-flex flex-column gap-3">
+          <div>
+            <label class="form-label">RTSP 地址或本地视频文件路径</label>
+            <div class="path-picker-row">
+              <div class="grow">
+                <input type="text" name="source" id="source" class="form-control" value="{{ form.get('source', '') }}" placeholder="点击右侧按钮选择文件或目录" readonly required>
+                <div class="path-preview {% if not form.get('source', '') %}empty{% endif %}" id="source_preview">{{ form.get('source', '尚未选择路径') if form.get('source', '') else '尚未选择路径' }}</div>
+              </div>
+              <button type="button" class="btn btn-secondary path-picker-btn" onclick="pickPath('source', 'file')">选择文件</button>
+            </div>
+            <div class="form-text text-muted">如果需要选择目录，可把页面上的选择类型改成 directory。</div>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">帧间隔</label>
+              <input type="number" name="interval" class="form-control" value="{{ form.get('interval', '30') }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">输出格式</label>
+              <select name="output_format" class="form-select">
+                <option value="jpg" {% if form.get('output_format', 'jpg') == 'jpg' %}selected{% endif %}>jpg</option>
+                <option value="png" {% if form.get('output_format') == 'png' %}selected{% endif %}>png</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">输出目录</label>
+              <div class="path-picker-row">
+                <div class="grow">
+                  <input type="text" name="output_dir" id="output_dir" class="form-control" value="{{ form.get('output_dir', '') }}" placeholder="点击右侧按钮选择目录" readonly required>
+                  <div class="path-preview {% if not form.get('output_dir', '') %}empty{% endif %}" id="output_dir_preview">{{ form.get('output_dir', '尚未选择路径') if form.get('output_dir', '') else '尚未选择路径' }}</div>
+                </div>
+                <button type="button" class="btn btn-secondary path-picker-btn" onclick="pickPath('output_dir')">选择路径</button>
+              </div>
+            </div>
+          </div>
+          <div>
+            <button type="submit" class="btn btn-success">执行抽帧</button>
+          </div>
+        </form>
+        {% if result and result.data %}
+        <div class="card card-soft p-3 mt-3">
+          <div class="mb-2 fw-bold">结果详情</div>
+          <pre>{{ result.data | tojson(indent=2) }}</pre>
+        </div>
+        {% endif %}
+      </div>
+    </div>
   </div>
-  <div class="row g-3 mb-3">
-    <div class="col-md-4">
-      <label class="form-label">帧间隔</label>
-      <input type="number" name="interval" class="form-control" value="{{ form.get('interval', '30') }}">
-    </div>
-    <div class="col-md-4">
-      <label class="form-label">输出格式</label>
-      <select name="output_format" class="form-select">
-        <option value="jpg" {% if form.get('output_format', 'jpg') == 'jpg' %}selected{% endif %}>jpg</option>
-        <option value="png" {% if form.get('output_format') == 'png' %}selected{% endif %}>png</option>
-      </select>
-    </div>
-    <div class="col-md-4">
-      <label class="form-label">输出目录</label>
-      <input type="text" name="output_dir" class="form-control" value="{{ form.get('output_dir', '') }}" placeholder="例如：D:/frames" required>
-    </div>
-  </div>
-  <button type="submit" class="btn btn-success">执行抽帧</button>
-</form>
-{% if result and result.data %}
-<div class="card p-3 shadow-sm mb-3">
-  <div class="mb-2 fw-bold">结果详情</div>
-  <pre>{{ result.data | tojson(indent=2) }}</pre>
 </div>
-{% endif %}
 {% endblock %}
