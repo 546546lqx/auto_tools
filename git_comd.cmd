@@ -1,6 +1,6 @@
 @echo off
 set "Mes=%~1"
-if "%Mes%"=="" set "Mes=完成新功能"
+if "%Mes%"=="" set "Mes="
 
 git checkout dev
 git add .
