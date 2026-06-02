@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+{% block title %}自动化标注 - YOLO 数据工具箱{% endblock %}
+{% block content %}
+<div class="tool-shell single">
+  <div class="tool-pane tool-scroll">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+          <div>
+            <h3 class="tool-page-title">自定义模型自动化标注</h3>
+            <p class="tool-subtitle">先选择 images 与 labels，再选择或上传模型，最后按映射关系自动生成 YOLO txt 与 classes.txt。</p>
+          </div>
+        </div>
+
+        {% if result %}
+        <div class="alert alert-{{ 'success' if result.success else 'danger' }}">{{ result.message }}</div>
+        {% endif %}
+
+        <div class="alert alert-info">
+          当前实现按“模型识别类别名 → 你填写的 id”进行映射；“需要自己标注额外框”选项仅保留 UI，暂不启用。
+        </div>
+
+        <form method="post" class="tool-compact d-flex flex-column gap-3" id="autoLabelForm">
+          <div>
+            <label class="form-label">images 文件夹</label>
+            <div class="path-picker-row">
+              <div class="grow">
+                <input type="text" name="images_dir" id="images_dir" class="form-control" value="{{ form.get('images_dir', '') }}" placeholder="选择存放待标注图片的文件夹" readonly required>
+                <div class="path-preview {% if not form.get('images_dir', '') %}empty{% endif %}" id="images_dir_preview">{{ form.get('images_dir', '尚未选择路径') if form.get('images_dir', '') else '尚未选择路径' }}</div>
+              </div>
+              <button type="button" class="btn btn-secondary path-picker-btn" onclick="pickPath('images_dir')">选择路径</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="form-label">labels 文件夹</label>
+            <div class="path-picker-row">
+              <div class="grow">
+                <input type="text" name="labels_dir" id="labels_dir" class="form-control" value="{{ form.get('labels_dir', '') }}" placeholder="选择保存标注结果的文件夹" readonly required>
+                <div class="path-preview {% if not form.get('labels_dir', '') %}empty{% endif %}" id="labels_dir_preview">{{ form.get('labels_dir', '尚未选择路径') if form.get('labels_dir', '') else '尚未选择路径' }}</div>
+              </div>
+              <button type="button" class="btn btn-secondary path-picker-btn" onclick="pickPath('labels_dir')">选择路径</button>
+            </div>
+          </div>
+
+          <div class="card card-soft p-3">
+            <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+              <div class="fw-bold">模型选择</div>
+              <button type="button" class="btn btn-secondary" onclick="refreshModelList()">刷新 models</button>
+            </div>
+            <div class="d-flex flex-column gap-2">
+              <input type="hidden" name="models_dir" id="models_dir" value="{{ models.models_dir if models else 'models' }}">
+              <select name="model_path" id="model_path" class="form-select" required>
+                <option value="">请选择模型</option>
+                {% for model in models.models if models and models.models %}
+                <option value="{{ model.path }}" {% if form.get('model_path', '') == model.path %}selected{% endif %}>{{ model.name }}</option>
+                {% endfor %}
+              </select>
+              <div class="path-preview empty" id="models_hint">仅显示 models 文件夹中的文件名，不显示完整路径</div>
+              <div class="d-flex flex-wrap gap-2 align-items-center">
+                <button type="button" class="btn btn-secondary" onclick="pickPath('upload_model_input','file')">上传模型到 models</button>
+                <input type="text" id="upload_model_input" class="form-control" readonly placeholder="选择一个本地模型文件后点击上传" style="max-width: 380px;">
+                <button type="button" class="btn btn-primary" onclick="uploadModel()">上传并自动选择</button>
+              </div>
+              <div class="form-text">上传时会复制到 models 文件夹，并自动切换为刚上传的模型。</div>
+            </div>
+          </div>
+
+          <div>
+            <label class="form-label">映射关系</label>
+            <textarea name="mapping_text" id="mapping_text" class="form-control" rows="5" placeholder="person-->0\ncar-->1" required>{{ form.get('mapping_text', 'person-->0\ncar-->1') }}</textarea>
+            <div class="form-text">左边填写模型识别到的类别名，右边填写要保存到 txt 的 id；自动保存为 labels 文件夹下的 classes.txt。</div>
+          </div>
+
+          <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="need_extra_box" disabled>
+            <label class="form-check-label" for="need_extra_box">需要自己标注额外框（暂不实现）</label>
+          </div>
+
+          <div>
+            <button type="submit" class="btn btn-success">开始标注</button>
+          </div>
+        </form>
+
+        {% if result and result.data %}
+        <div class="card card-soft p-3 mt-3">
+          <div class="mb-2 fw-bold">结果详情</div>
+          <pre>{{ result.data | tojson(indent=2) }}</pre>
+        </div>
+        {% endif %}
+
+        <div class="card card-soft p-3 mt-3">
+          <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+            <div class="fw-bold">models 文件夹模型列表</div>
+            <span class="small text-muted" id="models_dir_label">{{ models.models_dir if models else 'models' }}</span>
+          </div>
+          <div id="modelsList" class="d-flex flex-column gap-2">
+            {% if models and models.models %}
+              {% for model in models.models %}
+              <div class="path-preview">
+                <strong>{{ model.name }}</strong>
+                <div class="small text-muted">{{ model.relative_path }}</div>
+              </div>
+              {% endfor %}
+            {% else %}
+              <div class="path-preview empty">当前 models 文件夹中没有可用模型</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+async function refreshModelList(selectPreferredPath = '') {
+  const modelsDir = document.getElementById('models_dir')?.value || 'models';
+  const resp = await fetch(`/api/auto-label/models?models_dir=${encodeURIComponent(modelsDir)}`);
+  const data = await resp.json();
+  if (!resp.ok || !data.success) {
+    alert(data.message || '刷新模型失败');
+    return;
+  }
+  const select = document.getElementById('model_path');
+  const list = document.getElementById('modelsList');
+  const models = data.data.models || [];
+  select.innerHTML = '<option value="">请选择模型</option>' + models.map(m => `<option value="${m.path}">${m.name}</option>`).join('');
+  list.innerHTML = models.length
+    ? models.map(m => `<div class="path-preview"><strong>${m.name}</strong><div class="small text-muted">${m.relative_path || m.path}</div></div>`).join('')
+    : '<div class="path-preview empty">当前 models 文件夹中没有可用模型</div>';
+  if (selectPreferredPath) select.value = selectPreferredPath;
+}
+
+async function uploadModel() {
+  const sourceModelPath = document.getElementById('upload_model_input')?.value.trim();
+  const modelsDir = document.getElementById('models_dir')?.value || 'models';
+  if (!sourceModelPath) {
+    alert('请先选择一个模型文件');
+    return;
+  }
+  const resp = await fetch('/api/auto-label/upload-model', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({source_model_path: sourceModelPath, models_dir: modelsDir})
+  });
+  const data = await resp.json();
+  if (!resp.ok || !data.success) {
+    alert(data.message || '上传失败');
+    return;
+  }
+  await refreshModelList(data.data.uploaded_path);
+  alert(data.message || '上传成功');
+}
+
+refreshModelList();
+</script>
+{% endblock %}
