@@ -1,33 +1,58 @@
 {% extends 'base.html' %}
 {% block title %}统计 - YOLO 数据工具箱{% endblock %}
 {% block content %}
-<h3 class="mb-4">统计</h3>
-{% if result %}
-<div class="alert alert-{{ 'success' if result.success else 'danger' }}">{{ result.message }}</div>
-{% endif %}
-<form method="post" class="card p-4 shadow-sm mb-4">
-  <div class="mb-3">
-    <label class="form-label">labels 目录路径</label>
-    <input type="text" name="labels_dir" class="form-control" value="{{ form.get('labels_dir', '') }}" placeholder="例如：D:/dataset/labels" required>
-    <div class="form-text text-muted">请复制本地文件夹完整路径并粘贴到输入框中</div>
+<div class="tool-shell single">
+  <div class="tool-pane tool-scroll">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+          <div>
+            <h3 class="tool-page-title">统计</h3>
+            <p class="tool-subtitle">尽量保持在单屏内；结果区超过高度时在面板内部滚动。</p>
+          </div>
+        </div>
+        {% if result %}
+        <div class="alert alert-{{ 'success' if result.success else 'danger' }}">{{ result.message }}</div>
+        {% endif %}
+        <form method="post" class="tool-compact d-flex flex-column gap-3">
+          <div>
+            <label class="form-label">labels 目录路径</label>
+            <div class="path-picker-row">
+              <div class="grow">
+                <input type="text" name="labels_dir" id="labels_dir" class="form-control" value="{{ form.get('labels_dir', '') }}" placeholder="点击右侧按钮选择目录" readonly required>
+                <div class="path-preview {% if not form.get('labels_dir', '') %}empty{% endif %}" id="labels_dir_preview">{{ form.get('labels_dir', '尚未选择路径') if form.get('labels_dir', '') else '尚未选择路径' }}</div>
+              </div>
+              <button type="button" class="btn btn-secondary path-picker-btn" onclick="pickPath('labels_dir')">选择路径</button>
+            </div>
+          </div>
+          <div>
+            <label class="form-label">images 目录路径</label>
+            <div class="path-picker-row">
+              <div class="grow">
+                <input type="text" name="images_dir" id="images_dir" class="form-control" value="{{ form.get('images_dir', '') }}" placeholder="点击右侧按钮选择目录" readonly>
+                <div class="path-preview {% if not form.get('images_dir', '') %}empty{% endif %}" id="images_dir_preview">{{ form.get('images_dir', '尚未选择路径') if form.get('images_dir', '') else '尚未选择路径' }}</div>
+              </div>
+              <button type="button" class="btn btn-secondary path-picker-btn" onclick="pickPath('images_dir')">选择路径</button>
+            </div>
+          </div>
+          <div>
+            <button type="submit" class="btn btn-primary">执行统计</button>
+          </div>
+        </form>
+        {% if result and result.data %}
+        <div class="card card-soft p-3 mb-3">
+          <div class="mb-2 fw-bold">结果详情</div>
+          <pre>{{ result.data | tojson(indent=2) }}</pre>
+        </div>
+        {% endif %}
+        {% if result and result.debug %}
+        <div class="card card-soft p-3">
+          <div class="mb-2 fw-bold">调试日志</div>
+          <pre>{{ result.debug }}</pre>
+        </div>
+        {% endif %}
+      </div>
+    </div>
   </div>
-  <div class="mb-3">
-    <label class="form-label">images 目录路径</label>
-    <input type="text" name="images_dir" class="form-control" value="{{ form.get('images_dir', '') }}" placeholder="例如：D:/dataset/images">
-    <div class="form-text text-muted">请复制本地文件夹完整路径并粘贴到输入框中</div>
-  </div>
-  <button type="submit" class="btn btn-primary">执行统计</button>
-</form>
-{% if result and result.data %}
-<div class="card p-3 shadow-sm mb-3">
-  <div class="mb-2 fw-bold">结果详情</div>
-  <pre>{{ result.data | tojson(indent=2) }}</pre>
 </div>
-{% endif %}
-{% if result and result.debug %}
-<div class="card p-3 shadow-sm">
-  <div class="mb-2 fw-bold">调试日志</div>
-  <pre>{{ result.debug }}</pre>
-</div>
-{% endif %}
 {% endblock %}

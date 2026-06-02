@@ -1,18 +1,16 @@
 {% extends 'base.html' %}
 {% block title %}多边形 Region 标注 - YOLO 数据工具箱{% endblock %}
 {% block content %}
-<div class="polygon-page">
-  <div class="polygon-hero card p-4 mb-4">
-    <div class="d-flex flex-column gap-2">
-      <div class="polygon-kicker">多边形 Region 标注</div>
-      <h3 class="mb-0">上传图片或加载首帧后，在画布中绘制多边形</h3>
-      <div class="text-muted">支持本地图片、RTSP 或 MP4 首帧预览，自动按图片尺寸渲染，避免画布空白。</div>
-    </div>
-  </div>
+<div class="tool-shell polygon-shell" style="grid-template-columns:minmax(320px, .9fr) minmax(0, 1.1fr);">
+  <div class="tool-pane tool-scroll">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex flex-column gap-2 mb-3">
+          <div class="small" style="letter-spacing:.12em;text-transform:uppercase;color:#5b6b84;">多边形 Region 标注</div>
+          <h3 class="tool-page-title">上传图片或加载首帧后，在画布中绘制多边形</h3>
+          <p class="tool-subtitle">支持本地图片、RTSP 或 MP4 首帧预览，界面保持双栏且结果集中显示。</p>
+        </div>
 
-  <div class="row g-4 polygon-layout">
-    <div class="col-lg-4">
-      <div class="card p-4 shadow-sm h-100 polygon-sidebar">
         <div class="mb-3">
           <label class="form-label">输入方式</label>
           <select id="poly_source_type" class="form-select" onchange="switchPolySource()">
@@ -42,16 +40,18 @@
 
         <div class="mb-3">
           <label class="form-label">归一化顶点预览</label>
-          <textarea id="poly_points_preview" class="form-control" rows="10" readonly placeholder="点击画布添加顶点后，这里会显示归一化坐标"></textarea>
+          <textarea id="poly_points_preview" class="form-control" rows="8" readonly placeholder="点击画布添加顶点后，这里会显示归一化坐标"></textarea>
         </div>
 
         <div id="poly_result" class="alert alert-info mb-0">请先上传图片，或输入 RTSP/MP4 并加载首帧，然后在画布上点击绘制多边形。</div>
       </div>
     </div>
+  </div>
 
-    <div class="col-lg-8">
-      <div class="card p-3 shadow-sm mb-4">
-        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+  <div class="tool-pane">
+    <div class="card h-100">
+      <div class="card-body d-flex flex-column gap-3">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
           <div>
             <div class="fw-bold">画布区域</div>
             <div class="text-muted small">左键添加点，右键任意位置撤回上一个点，拖拽可调整顶点</div>
@@ -61,16 +61,15 @@
         <div class="poly-stage">
           <canvas id="poly_canvas" class="poly-canvas"></canvas>
         </div>
-      </div>
-
-      <div class="card p-3 shadow-sm">
-        <div class="fw-bold mb-2">使用说明</div>
-        <ul class="mb-0 text-muted">
-          <li>支持上传图片或读取 RTSP / MP4 首帧</li>
-          <li>图片加载后会自动按原始比例适配到画布</li>
-          <li>点击画布添加顶点，右键任意位置可删除最后一个点</li>
-          <li>点击“下载 TXT”可将当前多边形坐标导出到浏览器下载</li>
-        </ul>
+        <div class="card card-soft p-3">
+          <div class="fw-bold mb-2">使用说明</div>
+          <ul class="mb-0 text-muted small">
+            <li>支持上传图片或读取 RTSP / MP4 首帧</li>
+            <li>图片加载后会自动按原始比例适配到画布</li>
+            <li>点击画布添加顶点，右键任意位置可删除最后一个点</li>
+            <li>点击“下载 TXT”可将当前多边形坐标导出到浏览器下载</li>
+          </ul>
+        </div>
       </div>
     </div>
   </div>
@@ -108,7 +107,7 @@
   function resizeCanvas(){
     const rect = canvas.getBoundingClientRect();
     const width = Math.max(640, Math.floor(rect.width || 0));
-    const height = Math.max(420, Math.min(760, Math.floor(window.innerHeight * 0.72)));
+    const height = Math.max(420, Math.floor(rect.height || Math.min(window.innerHeight * 0.58, 620)));
     canvas.style.height = height + 'px';
     canvas.width = Math.floor(width * state.dpr);
     canvas.height = Math.floor(height * state.dpr);
