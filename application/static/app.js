@@ -1,6 +1,32 @@
 const state = { points: [], imgW: 0, imgH: 0, canvas: document.getElementById('poly_canvas'), ctx: null, img: null, dragging: -1, rtspJobId: null };
 if (state.canvas) state.ctx = state.canvas.getContext('2d');
 
+async function pickPath(targetId, selectionType = 'directory') {
+  try {
+    const response = await fetch('/api/desktop-picker', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ selection_type: selectionType }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success || !data.path) {
+      throw new Error(data.message || '未选择路径');
+    }
+
+    const input = document.getElementById(targetId);
+    const preview = document.getElementById(`${targetId}_preview`);
+    if (input) input.value = data.path;
+    if (preview) {
+      preview.textContent = data.path;
+      preview.classList.remove('empty');
+    }
+    return data.path;
+  } catch (error) {
+    alert(error.message || '无法选择路径');
+    return '';
+  }
+}
+
 function show(id, data){ const el=document.getElementById(id); if (!el) return; el.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2); }
 async function api(url, body, out, method='POST'){ const r = await fetch(url,{method,headers:{'Content-Type':'application/json'},body:method==='GET'?undefined:JSON.stringify(body)}); const j = await r.json(); show(out, j); return j; }
 function val(id){ const el=document.getElementById(id); return el ? el.value : ''; }

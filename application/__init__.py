@@ -11,7 +11,7 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
     app = Flask(
         __name__,
         template_folder=str(Config.BASE_DIR / "application" / "templates"),
-        static_folder=str(Config.BASE_DIR / "static"),
+        static_folder=str(Config.BASE_DIR / "application" / "static"),
         static_url_path="/static",
     )
 
