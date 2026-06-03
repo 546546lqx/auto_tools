@@ -1,6 +1,63 @@
 {% extends 'base.html' %}
 {% block title %}自动化标注 - YOLO 数据工具箱{% endblock %}
 {% block content %}
+<style>
+  .blocking-overlay{
+    position:fixed;
+    inset:0;
+    z-index:99999;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    background:rgba(15,23,42,.62);
+    backdrop-filter:blur(8px);
+    pointer-events:auto;
+  }
+  .blocking-overlay.visible{display:flex}
+  .blocking-modal{
+    width:min(92vw, 520px);
+    background:rgba(255,255,255,.98);
+    border-radius:24px;
+    border:1px solid rgba(255,255,255,.9);
+    box-shadow:0 28px 80px rgba(15,23,42,.35);
+    padding:24px;
+  }
+  .blocking-title{margin:0 0 8px;font-size:1.15rem;font-weight:800;color:#0f172a}
+  .blocking-text{margin:0;color:#64748b;line-height:1.6}
+  .blocking-spinner{
+    width:54px;height:54px;border-radius:50%;
+    border:5px solid rgba(37,99,235,.16);
+    border-top-color:#2563eb;
+    animation:blockingSpin 1s linear infinite;
+    margin-bottom:16px;
+  }
+  .blocking-success-icon,
+  .blocking-error-icon{
+    width:54px;height:54px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:2rem;font-weight:900;
+    margin-bottom:16px;
+  }
+  .blocking-success-icon{background:rgba(34,197,94,.12);color:#16a34a}
+  .blocking-error-icon{background:rgba(239,68,68,.12);color:#dc2626}
+  .blocking-action-btn{
+    margin-top:18px;
+    min-width:120px;
+  }
+  .blocking-progress{
+    height:10px;border-radius:999px;background:#e2e8f0;overflow:hidden;margin-top:18px;
+  }
+  .blocking-progress-bar{
+    width:100%;height:100%;border-radius:999px;
+    background:linear-gradient(90deg,#2563eb,#4f46e5,#16a34a);
+    background-size:200% 100%;
+    animation:blockingShimmer 1.4s ease-in-out infinite;
+  }
+  @keyframes blockingSpin{to{transform:rotate(360deg)}}
+  @keyframes blockingShimmer{0%{transform:translateX(-35%)}50%{transform:translateX(0%)}100%{transform:translateX(35%)}}
+  body.auto-label-busy{overflow:hidden}
+  body.auto-label-busy main, body.auto-label-busy nav, body.auto-label-busy footer{pointer-events:none}
+</style>
 <div class="tool-shell single">
   <div class="tool-pane tool-scroll">
     <div class="card">
@@ -11,10 +68,6 @@
             <p class="tool-subtitle">先选择 images 与 labels，再选择或上传模型，最后按映射关系自动生成 YOLO txt 与 classes.txt。</p>
           </div>
         </div>
-
-        {% if result %}
-        <div class="alert alert-{{ 'success' if result.success else 'danger' }}">{{ result.message }}</div>
-        {% endif %}
 
         <div class="alert alert-info">
           当前实现按“模型识别类别名 → 你填写的 id”进行映射；“需要自己标注额外框”选项仅保留 UI，暂不启用。
@@ -78,7 +131,7 @@
           </div>
 
           <div>
-            <button type="submit" class="btn btn-success">开始标注</button>
+            <button type="submit" class="btn btn-success" id="autoLabelSubmitBtn">开始标注</button>
           </div>
         </form>
 
@@ -111,7 +164,86 @@
     </div>
   </div>
 </div>
+<div class="blocking-overlay" id="autoLabelOverlay" aria-hidden="true">
+  <div class="blocking-modal" role="dialog" aria-modal="true" aria-labelledby="autoLabelOverlayTitle">
+    <div class="d-flex flex-column align-items-center text-center">
+      <div class="blocking-spinner" aria-hidden="true"></div>
+      <h4 class="blocking-title" id="autoLabelOverlayTitle">自动标注正在执行</h4>
+      <p class="blocking-text" id="autoLabelOverlayText">任务正在后台运行，请稍候。完成后会自动提示结果，期间其他区域将无法点击。</p>
+      <div class="blocking-progress" aria-hidden="true"><div class="blocking-progress-bar"></div></div>
+    </div>
+  </div>
+</div>
+<div class="blocking-overlay" id="autoLabelResultOverlay" aria-hidden="true">
+  <div class="blocking-modal" role="dialog" aria-modal="true" aria-labelledby="autoLabelResultTitle">
+    <div class="d-flex flex-column align-items-center text-center">
+      <div id="autoLabelResultIcon" aria-hidden="true" class="blocking-spinner"></div>
+      <h4 class="blocking-title" id="autoLabelResultTitle">自动标注完成</h4>
+      <p class="blocking-text" id="autoLabelResultText">任务已完成，正在返回页面结果。</p>
+      <div class="blocking-progress" aria-hidden="true"><div class="blocking-progress-bar"></div></div>
+      <button type="button" class="btn btn-primary blocking-action-btn" id="autoLabelResultConfirmBtn">确认</button>
+    </div>
+  </div>
+</div>
 <script>
+const autoLabelForm = document.getElementById('autoLabelForm');
+const autoLabelOverlay = document.getElementById('autoLabelOverlay');
+const autoLabelOverlayText = document.getElementById('autoLabelOverlayText');
+const autoLabelSubmitBtn = document.getElementById('autoLabelSubmitBtn');
+const autoLabelResultOverlay = document.getElementById('autoLabelResultOverlay');
+const autoLabelResultIcon = document.getElementById('autoLabelResultIcon');
+const autoLabelResultTitle = document.getElementById('autoLabelResultTitle');
+const autoLabelResultText = document.getElementById('autoLabelResultText');
+const autoLabelResultConfirmBtn = document.getElementById('autoLabelResultConfirmBtn');
+let autoLabelBusy = false;
+let autoLabelResultDismissTimer = null;
+
+function showAutoLabelOverlay(message = '任务正在后台运行，请稍候。完成后会自动提示结果，期间其他区域将无法点击。') {
+  if (autoLabelOverlayText) autoLabelOverlayText.textContent = message;
+  if (autoLabelOverlay) autoLabelOverlay.classList.add('visible');
+  document.body.classList.add('auto-label-busy');
+  autoLabelBusy = true;
+  if (autoLabelSubmitBtn) {
+    autoLabelSubmitBtn.disabled = true;
+    autoLabelSubmitBtn.textContent = '正在标注...';
+  }
+}
+
+function hideAutoLabelOverlay() {
+  if (autoLabelOverlay) autoLabelOverlay.classList.remove('visible');
+  document.body.classList.remove('auto-label-busy');
+  autoLabelBusy = false;
+  if (autoLabelSubmitBtn) {
+    autoLabelSubmitBtn.disabled = false;
+    autoLabelSubmitBtn.textContent = '开始标注';
+  }
+}
+
+function hideAutoLabelResultOverlay() {
+  if (autoLabelResultDismissTimer) {
+    clearTimeout(autoLabelResultDismissTimer);
+    autoLabelResultDismissTimer = null;
+  }
+  if (autoLabelResultOverlay) autoLabelResultOverlay.classList.remove('visible');
+  document.body.classList.remove('auto-label-busy');
+}
+
+function showAutoLabelResultOverlay(success, message) {
+  if (!autoLabelResultOverlay) return;
+  if (autoLabelResultTitle) autoLabelResultTitle.textContent = success ? '自动标注完成' : '自动标注失败';
+  if (autoLabelResultText) autoLabelResultText.textContent = message || (success ? '任务已完成，请点击确认按钮关闭提示。' : '任务执行失败，请点击确认按钮关闭提示。');
+  if (autoLabelResultIcon) {
+    autoLabelResultIcon.className = success ? 'blocking-success-icon' : 'blocking-error-icon';
+    autoLabelResultIcon.textContent = success ? '✓' : '×';
+  }
+  if (autoLabelResultConfirmBtn) {
+    autoLabelResultConfirmBtn.textContent = '确认';
+    autoLabelResultConfirmBtn.disabled = false;
+  }
+  autoLabelResultOverlay.classList.add('visible');
+  document.body.classList.add('auto-label-busy');
+}
+
 async function refreshModelList(selectPreferredPath = '') {
   const modelsDir = document.getElementById('models_dir')?.value || 'models';
   const resp = await fetch(`/api/auto-label/models?models_dir=${encodeURIComponent(modelsDir)}`);
@@ -150,6 +282,29 @@ async function uploadModel() {
   await refreshModelList(data.data.uploaded_path);
   alert(data.message || '上传成功');
 }
+
+if (autoLabelForm) {
+  autoLabelForm.addEventListener('submit', () => {
+    showAutoLabelOverlay();
+  });
+}
+
+if (autoLabelResultConfirmBtn) {
+  autoLabelResultConfirmBtn.addEventListener('click', () => {
+    hideAutoLabelResultOverlay();
+  });
+}
+
+{% if result %}
+window.addEventListener('load', () => {
+  hideAutoLabelOverlay();
+  showAutoLabelResultOverlay({{ 'true' if result.success else 'false' }}, {{ result.message | tojson }});
+});
+{% else %}
+window.addEventListener('pageshow', () => {
+  if (autoLabelBusy) hideAutoLabelOverlay();
+});
+{% endif %}
 
 refreshModelList();
 </script>
