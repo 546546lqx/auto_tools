@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}多边形 Region 标注 - YOLO 数据工具箱{% endblock %}
 {% block content %}
-<div class="tool-shell polygon-shell" style="grid-template-columns:minmax(320px, .9fr) minmax(0, 1.1fr);">
+<div class="tool-shell polygon-shell">
   <div class="tool-pane tool-scroll">
     <div class="card">
       <div class="card-body">
@@ -13,9 +13,10 @@
 
         <div class="mb-3">
           <label class="form-label">输入方式</label>
-          <select id="poly_source_type" class="form-select" onchange="switchPolySource()">
+          <select id="poly_source_type" class="form-select">
             <option value="upload">上传图片</option>
-            <option value="video">RTSP / MP4 首帧</option>
+            <option value="rtsp">RTSP 输入</option>
+            <option value="mp4">MP4 文件</option>
           </select>
         </div>
 
@@ -25,17 +26,26 @@
           <div class="form-text text-muted">选择本地图片后会立即显示到右侧画布。</div>
         </div>
 
-        <div id="poly_video_panel" class="mb-3 d-none">
-          <label class="form-label">RTSP 地址或 MP4 路径</label>
-          <input type="text" id="poly_video_source" class="form-control" placeholder="例如：rtsp://... 或 D:/video.mp4">
-          <div class="form-text text-muted">点击加载首帧后会显示到右侧画布。</div>
+        <div id="poly_rtsp_panel" class="mb-3 d-none">
+          <label class="form-label">RTSP 地址</label>
+          <input type="text" id="poly_rtsp_source" class="form-control" placeholder="例如：rtsp://...">
+          <div class="form-text text-muted">输入 RTSP 地址后点击加载首帧。</div>
           <div class="d-flex gap-2 mt-2 flex-wrap">
-            <button type="button" class="btn btn-primary" onclick="loadPolyVideoFrame()">加载首帧</button>
+            <button type="button" class="btn btn-primary" id="loadPolyRtspFrameBtn">加载首帧</button>
+          </div>
+        </div>
+
+        <div id="poly_mp4_panel" class="mb-3 d-none">
+          <label class="form-label">MP4 文件</label>
+          <input type="file" id="poly_mp4_file" class="form-control" accept="video/mp4,video/*,.mp4">
+          <div class="form-text text-muted">选择本地 MP4 文件后点击加载首帧。</div>
+          <div class="d-flex gap-2 mt-2 flex-wrap">
+            <button type="button" class="btn btn-primary" id="loadPolyMp4FrameBtn">加载首帧</button>
           </div>
         </div>
 
         <div class="d-flex gap-2 flex-wrap mb-3">
-          <button type="button" class="btn btn-primary" onclick="downloadPolyTxt()">下载 TXT</button>
+          <button type="button" class="btn btn-primary" id="downloadPolyTxtBtn">下载 TXT</button>
         </div>
 
         <div class="mb-3">
@@ -74,299 +84,7 @@
     </div>
   </div>
 </div>
-
-<script>
-(function(){
-  const state = {
-    image: null,
-    imageUrl: '',
-    imageWidth: 0,
-    imageHeight: 0,
-    points: [],
-    draggingIndex: -1,
-    dpr: window.devicePixelRatio || 1,
-    rafPending: false,
-    mode: 'upload',
-  };
-
-  const canvas = document.getElementById('poly_canvas');
-  const ctx = canvas.getContext('2d');
-  const uploadInput = document.getElementById('poly_image');
-  const sourceType = document.getElementById('poly_source_type');
-  const uploadPanel = document.getElementById('poly_upload_panel');
-  const videoPanel = document.getElementById('poly_video_panel');
-  const videoSource = document.getElementById('poly_video_source');
-  const preview = document.getElementById('poly_points_preview');
-  const resultBox = document.getElementById('poly_result');
-
-  function setMessage(text, kind){
-    resultBox.className = 'alert mb-0 ' + (kind || 'alert-info');
-    resultBox.textContent = text;
-  }
-
-  function resizeCanvas(){
-    const rect = canvas.getBoundingClientRect();
-    const width = Math.max(640, Math.floor(rect.width || 0));
-    const height = Math.max(420, Math.floor(rect.height || Math.min(window.innerHeight * 0.58, 620)));
-    canvas.style.height = height + 'px';
-    canvas.width = Math.floor(width * state.dpr);
-    canvas.height = Math.floor(height * state.dpr);
-    ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
-    scheduleRender();
-  }
-
-  function scheduleRender(){
-    if (state.rafPending) return;
-    state.rafPending = true;
-    requestAnimationFrame(function(){
-      state.rafPending = false;
-      render();
-    });
-  }
-
-  function getCanvasPoint(evt){
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: evt.clientX - rect.left,
-      y: evt.clientY - rect.top,
-    };
-  }
-
-  function imageRect(){
-    const cw = canvas.clientWidth;
-    const ch = canvas.clientHeight;
-    if (!state.image || !state.imageWidth || !state.imageHeight) {
-      return { x: 0, y: 0, w: cw, h: ch };
-    }
-    const scale = Math.min(cw / state.imageWidth, ch / state.imageHeight);
-    const w = state.imageWidth * scale;
-    const h = state.imageHeight * scale;
-    return { x: (cw - w) / 2, y: (ch - h) / 2, w, h };
-  }
-
-  function pointToImage(pt){
-    const rect = imageRect();
-    const x = (pt.x - rect.x) * state.imageWidth / rect.w;
-    const y = (pt.y - rect.y) * state.imageHeight / rect.h;
-    return { x, y };
-  }
-
-  function pointToCanvas(pt){
-    const rect = imageRect();
-    return {
-      x: rect.x + pt.x * rect.w / state.imageWidth,
-      y: rect.y + pt.y * rect.h / state.imageHeight,
-    };
-  }
-
-  function clampPoint(pt){
-    return {
-      x: Math.max(0, Math.min(state.imageWidth, pt.x)),
-      y: Math.max(0, Math.min(state.imageHeight, pt.y)),
-    };
-  }
-
-  function updatePreview(){
-    if (!state.points.length || !state.imageWidth || !state.imageHeight) {
-      preview.value = '';
-      return;
-    }
-    preview.value = JSON.stringify(state.points.map(function(pt){
-      return [Number((pt.x / state.imageWidth).toFixed(6)), Number((pt.y / state.imageHeight).toFixed(6))];
-    }), null, 2);
-  }
-
-  function render(){
-    const cw = canvas.clientWidth;
-    const ch = canvas.clientHeight;
-    ctx.clearRect(0, 0, cw, ch);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, cw, ch);
-
-    if (!state.image) {
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = '16px system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('请先上传图片或加载首帧', cw / 2, ch / 2 - 10);
-      ctx.fillText('然后点击画布开始绘制多边形', cw / 2, ch / 2 + 18);
-      updatePreview();
-      return;
-    }
-
-    const rect = imageRect();
-    ctx.drawImage(state.image, rect.x, rect.y, rect.w, rect.h);
-
-    if (state.points.length) {
-      ctx.save();
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = '#2563eb';
-      ctx.fillStyle = '#2563eb';
-      ctx.beginPath();
-      state.points.forEach(function(pt, index){
-        const canvasPt = pointToCanvas(pt);
-        if (index === 0) ctx.moveTo(canvasPt.x, canvasPt.y);
-        else ctx.lineTo(canvasPt.x, canvasPt.y);
-      });
-      if (state.points.length > 1) ctx.closePath();
-      ctx.stroke();
-      state.points.forEach(function(pt, index){
-        const canvasPt = pointToCanvas(pt);
-        ctx.beginPath();
-        ctx.arc(canvasPt.x, canvasPt.y, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '12px system-ui, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(index + 1), canvasPt.x, canvasPt.y - 1);
-        ctx.fillStyle = '#2563eb';
-      });
-      ctx.restore();
-    }
-
-    updatePreview();
-  }
-
-  function loadImageFromUrl(url, filename){
-    if (!url) return;
-    const img = new Image();
-    img.onload = function(){
-      state.image = img;
-      state.imageWidth = img.naturalWidth || img.width;
-      state.imageHeight = img.naturalHeight || img.height;
-      state.points = [];
-      state.draggingIndex = -1;
-      state.imageUrl = url;
-      setMessage('已加载 ' + (filename || '图片') + '，请在画布中点击绘制多边形。', 'alert-success');
-      scheduleRender();
-    };
-    img.onerror = function(){
-      setMessage('图片加载失败，请检查文件是否有效或浏览器无法访问该图片地址。', 'alert-danger');
-    };
-    img.src = url;
-  }
-
-  function buildPolygonText(){
-    if (!state.image || state.points.length < 3) {
-      throw new Error('多边形至少需要 3 个点。');
-    }
-    return JSON.stringify({
-      image_width: state.imageWidth,
-      image_height: state.imageHeight,
-      points: state.points.map(function(pt){
-        return [Number((pt.x / state.imageWidth).toFixed(6)), Number((pt.y / state.imageHeight).toFixed(6))];
-      })
-    }, null, 2);
-  }
-
-  window.downloadPolyTxt = function(){
-    try {
-      const text = buildPolygonText();
-      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'polygon_coords.txt';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-      setMessage('已生成 TXT 下载。', 'alert-success');
-    } catch (err) {
-      setMessage(err.message || '无法下载 TXT。', 'alert-danger');
-    }
-  };
-
-  uploadInput.addEventListener('change', function(){
-    const file = uploadInput.files && uploadInput.files[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    if (state.imageUrl && state.imageUrl.startsWith('blob:')) URL.revokeObjectURL(state.imageUrl);
-    loadImageFromUrl(url, file.name);
-  });
-
-  window.switchPolySource = function(){
-    state.mode = sourceType.value;
-    uploadPanel.classList.toggle('d-none', state.mode !== 'upload');
-    videoPanel.classList.toggle('d-none', state.mode !== 'video');
-  };
-
-  window.loadPolyVideoFrame = async function(){
-    const source = (videoSource.value || '').trim();
-    if (!source) {
-      setMessage('请输入 RTSP 地址或 MP4 路径。', 'alert-danger');
-      return;
-    }
-    try {
-      setMessage('正在请求首帧，请稍候...', 'alert-info');
-      const resp = await fetch('/polygon/frame-preview?source=' + encodeURIComponent(source));
-      const data = await resp.json();
-      if (!resp.ok || !data.success || !data.image_url) {
-        throw new Error(data.message || ('首帧加载失败（HTTP ' + resp.status + '）'));
-      }
-      loadImageFromUrl(data.image_url + '?t=' + Date.now(), data.filename || '首帧');
-    } catch (err) {
-      setMessage(err.message || '加载首帧失败。', 'alert-danger');
-    }
-  };
-
-  window.undoPoly = function(){
-    if (!state.points.length) return;
-    state.points.pop();
-    updatePreview();
-    scheduleRender();
-  };
-
-  window.addEventListener('contextmenu', function(evt){
-    if (evt.target === canvas) evt.preventDefault();
-  });
-
-  canvas.addEventListener('pointerdown', function(evt){
-    if (evt.button === 2) {
-      evt.preventDefault();
-      if (!state.points.length) return;
-      state.points.pop();
-      updatePreview();
-      scheduleRender();
-      return;
-    }
-    if (evt.button !== 0 || !state.image) return;
-    const pt = getCanvasPoint(evt);
-    const hitRadius = 10;
-    for (let i = state.points.length - 1; i >= 0; i--) {
-      const canvasPt = pointToCanvas(state.points[i]);
-      const dx = canvasPt.x - pt.x;
-      const dy = canvasPt.y - pt.y;
-      if (Math.sqrt(dx * dx + dy * dy) <= hitRadius) {
-        state.draggingIndex = i;
-        return;
-      }
-    }
-    const imagePt = clampPoint(pointToImage(pt));
-    state.points.push(imagePt);
-    updatePreview();
-    scheduleRender();
-  });
-
-  window.addEventListener('mousemove', function(evt){
-    if (state.draggingIndex < 0 || !state.image) return;
-    const pt = getCanvasPoint(evt);
-    const imagePt = clampPoint(pointToImage(pt));
-    state.points[state.draggingIndex] = imagePt;
-    updatePreview();
-    scheduleRender();
-  });
-
-  window.addEventListener('mouseup', function(){
-    state.draggingIndex = -1;
-  });
-
-  window.addEventListener('resize', resizeCanvas);
-  window.addEventListener('load', function(){
-    resizeCanvas();
-    window.switchPolySource();
-    setMessage('请选择图片或加载首帧后开始标注。', 'alert-info');
-  });
-})();
-</script>
+{% endblock %}
+{% block page_scripts %}
+<script src="{{ url_for('static', filename='pages/polygon.js') }}"></script>
 {% endblock %}

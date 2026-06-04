@@ -1,63 +1,106 @@
 {% extends 'base.html' %}
 {% block title %}清理 - YOLO 数据工具箱{% endblock %}
 {% block content %}
-<div class="tool-shell single">
-  <div class="tool-pane tool-scroll">
-    <div class="card">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
-          <div>
-            <h3 class="tool-page-title">清理</h3>
-            <p class="tool-subtitle">将表单和结果做成分区布局，避免页面整体滚动。</p>
-          </div>
-        </div>
-        {% if result %}
-        <div class="alert alert-{{ 'success' if result.success else 'danger' }}">{{ result.message }}</div>
-        {% endif %}
-        <form method="post" class="tool-compact d-flex flex-column gap-3" id="toolForm">
-          <div>
-            <label class="form-label">images 目录路径</label>
-            <div class="path-picker-row">
-              <div class="grow">
-                <input type="text" name="images_dir" id="images_dir" class="form-control" value="{{ form.get('images_dir', '') }}" placeholder="点击右侧按钮选择目录" readonly required>
-                <div class="path-preview {% if not form.get('images_dir', '') %}empty{% endif %}" id="images_dir_preview">{{ form.get('images_dir', '尚未选择路径') if form.get('images_dir', '') else '尚未选择路径' }}</div>
-              </div>
-              <button type="button" class="btn btn-secondary path-picker-btn" onclick="pickPath('images_dir')">选择路径</button>
-            </div>
-          </div>
-          <div>
-            <label class="form-label">labels 目录路径</label>
-            <div class="path-picker-row">
-              <div class="grow">
-                <input type="text" name="labels_dir" id="labels_dir" class="form-control" value="{{ form.get('labels_dir', '') }}" placeholder="点击右侧按钮选择目录" readonly required>
-                <div class="path-preview {% if not form.get('labels_dir', '') %}empty{% endif %}" id="labels_dir_preview">{{ form.get('labels_dir', '尚未选择路径') if form.get('labels_dir', '') else '尚未选择路径' }}</div>
-              </div>
-              <button type="button" class="btn btn-secondary path-picker-btn" onclick="pickPath('labels_dir')">选择路径</button>
-            </div>
-          </div>
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="preview_only" id="preview_only" {% if form.get('preview_only') %}checked{% endif %}>
-            <label class="form-check-label" for="preview_only">仅预览，不删除</label>
-          </div>
-          <div>
-            <button type="submit" class="btn btn-warning">清理冗余</button>
-          </div>
-        </form>
-        {% if result and result.data %}
-        <div class="card card-soft p-3 mb-3">
-          <div class="mb-2 fw-bold">结果详情</div>
-          <pre>{{ result.data | tojson(indent=2) }}</pre>
-        </div>
-        {% endif %}
-        {% if result and result.debug %}
-        <div class="card card-soft p-3">
-          <div class="mb-2 fw-bold">调试日志</div>
-          <pre>{{ result.debug }}</pre>
-        </div>
-        {% endif %}
-      </div>
+<div class="cleanup-page">
+  <section class="stats-hero card mb-4 cleanup-hero">
+    <div>
+      <div class="eyebrow dark">Cleanup Tool</div>
+      <h1>清理冗余图片与标注</h1>
+      <p>参考统计页的视觉层级，为清理工具补充分区布局、摘要卡片和结果面板，让路径选择与执行反馈更清晰。</p>
     </div>
-  </div>
+    <div class="stats-hero-actions">
+      <button type="button" class="btn btn-warning btn-lg" id="openCleanupFormBtn">开始清理</button>
+      <div class="text-muted small">支持预览模式，避免误删</div>
+    </div>
+  </section>
+
+  {% if result and result.success and result.data %}
+  {% set data = result.data %}
+  {% set debug = data.debug if data.debug is defined else {} %}
+  <section class="stats-summary-grid mb-4 cleanup-summary-grid">
+    <div class="stat-card tone-amber">
+      <div class="stat-card-icon">PRV</div>
+      <div class="stat-card-label">预览项</div>
+      <div class="stat-card-value">{{ (data.deleted_images|length if data.deleted_images is defined else 0) + (data.deleted_labels|length if data.deleted_labels is defined else 0) }}</div>
+      <div class="stat-card-desc">本次将被检查的冗余文件数量</div>
+    </div>
+    <div class="stat-card tone-rose">
+      <div class="stat-card-icon">DEL</div>
+      <div class="stat-card-label">删除项</div>
+      <div class="stat-card-value">{{ 0 if data.dry_run else (data.deleted_images|length if data.deleted_images is defined else 0) + (data.deleted_labels|length if data.deleted_labels is defined else 0) }}</div>
+      <div class="stat-card-desc">实际清理完成的文件数量</div>
+    </div>
+    <div class="stat-card tone-blue">
+      <div class="stat-card-icon">IMG</div>
+      <div class="stat-card-label">图片目录</div>
+      <div class="stat-card-value">{{ debug.images_count if debug.images_count is defined else 0 }}</div>
+      <div class="stat-card-desc">参与分析的 images 文件总数</div>
+    </div>
+    <div class="stat-card tone-indigo">
+      <div class="stat-card-icon">TXT</div>
+      <div class="stat-card-label">标注目录</div>
+      <div class="stat-card-value">{{ debug.labels_count if debug.labels_count is defined else 0 }}</div>
+      <div class="stat-card-desc">参与分析的 labels 文件总数</div>
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="stats-content-grid cleanup-content-grid">
+    <div class="card stats-panel cleanup-form-panel" id="cleanupFormPanel">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow dark">Options</div>
+          <h2>清理参数</h2>
+        </div>
+        <span class="badge bg-warning rounded-pill">Safe Mode</span>
+      </div>
+      {% if result and not result.success %}
+      <div class="alert alert-danger">{{ result.message }}</div>
+      {% elif result and result.success %}
+      <div class="alert alert-success">{{ result.message }}</div>
+      {% endif %}
+      <form method="post" class="tool-compact d-flex flex-column gap-3 cleanup-form" id="toolForm">
+        <div class="path-field">
+          <label class="form-label">images 目录路径</label>
+          <div class="path-picker-row">
+            <div class="grow">
+              <input type="text" name="images_dir" id="images_dir" class="form-control" value="{{ form.get('images_dir', '') }}" placeholder="点击右侧按钮选择目录" readonly required>
+              <div class="path-preview {% if not form.get('images_dir', '') %}empty{% endif %}" id="images_dir_preview">{{ form.get('images_dir', '尚未选择路径') if form.get('images_dir', '') else '尚未选择路径' }}</div>
+            </div>
+            <button type="button" class="btn btn-secondary path-picker-btn" data-path-picker="images_dir">选择路径</button>
+          </div>
+        </div>
+        <div class="path-field">
+          <label class="form-label">labels 目录路径</label>
+          <div class="path-picker-row">
+            <div class="grow">
+              <input type="text" name="labels_dir" id="labels_dir" class="form-control" value="{{ form.get('labels_dir', '') }}" placeholder="点击右侧按钮选择目录" readonly required>
+              <div class="path-preview {% if not form.get('labels_dir', '') %}empty{% endif %}" id="labels_dir_preview">{{ form.get('labels_dir', '尚未选择路径') if form.get('labels_dir', '') else '尚未选择路径' }}</div>
+            </div>
+            <button type="button" class="btn btn-secondary path-picker-btn" data-path-picker="labels_dir">选择路径</button>
+          </div>
+        </div>
+        <div class="form-check cleanup-check">
+          <input class="form-check-input" type="checkbox" name="preview_only" id="preview_only" {% if form.get('preview_only') %}checked{% endif %}>
+          <label class="form-check-label" for="preview_only">仅预览，不删除</label>
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-2">
+          <button type="submit" class="btn btn-warning" id="cleanupSubmitBtn">清理冗余</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card stats-panel cleanup-help-panel">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow dark">Tips</div>
+          <h2>使用说明</h2>
+        </div>
+        <span class="badge bg-light text-dark rounded-pill">Guidance</span>
+      </div>
+      <div class="empty-state cleanup-empty">点击上方“开始清理”会自动滚动到这里，随后填写路径并提交。</div>
+    </div>
+  </section>
 </div>
 <div class="blocking-overlay" id="toolOverlay" aria-hidden="true">
   <div class="blocking-modal" role="dialog" aria-modal="true" aria-labelledby="toolOverlayTitle">
@@ -69,7 +112,7 @@
     </div>
   </div>
 </div>
-<div class="blocking-overlay" id="toolResultOverlay" aria-hidden="true">
+<div class="blocking-overlay" id="toolResultOverlay" aria-hidden="true" inert>
   <div class="blocking-modal" role="dialog" aria-modal="true" aria-labelledby="toolResultTitle">
     <div class="d-flex flex-column align-items-center text-center">
       <div id="toolResultIcon" class="blocking-spinner" aria-hidden="true"></div>
@@ -80,36 +123,15 @@
     </div>
   </div>
 </div>
-<script>
-function pickPath(targetId, selectionType='directory') {
-  fetch('/api/desktop-picker', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({selection_type: selectionType})})
-    .then(resp => resp.json().then(data => ({ok: resp.ok, data})))
-    .then(({ok, data}) => {
-      if (!ok || !data.success || !data.path) throw new Error(data.message || '未选择路径');
-      const input = document.getElementById(targetId);
-      const preview = document.getElementById(targetId + '_preview');
-      if (input) input.value = data.path;
-      if (preview) { preview.textContent = data.path; preview.classList.remove('empty'); }
-    })
-    .catch(err => alert(err.message || '无法选择路径'));
-}
-const toolForm = document.getElementById('toolForm');
-const toolOverlay = document.getElementById('toolOverlay');
-const toolOverlayText = document.getElementById('toolOverlayText');
-const toolSubmitBtn = document.querySelector('#toolForm button[type="submit"]');
-const toolResultOverlay = document.getElementById('toolResultOverlay');
-const toolResultTitle = document.getElementById('toolResultTitle');
-const toolResultText = document.getElementById('toolResultText');
-const toolResultIcon = document.getElementById('toolResultIcon');
-const toolResultConfirmBtn = document.getElementById('toolResultConfirmBtn');
-function showToolOverlay(message='请稍候，完成后会显示结果。'){ if (toolOverlayText) toolOverlayText.textContent = message; if (toolOverlay) toolOverlay.classList.add('visible'); document.body.classList.add('auto-label-busy'); if (toolSubmitBtn){ toolSubmitBtn.disabled = true; toolSubmitBtn.textContent = '正在执行...'; } }
-function hideToolOverlay(){ if (toolOverlay) toolOverlay.classList.remove('visible'); document.body.classList.remove('auto-label-busy'); if (toolSubmitBtn){ toolSubmitBtn.disabled = false; toolSubmitBtn.textContent = '清理冗余'; } }
-function hideToolResultOverlay(){ if (toolResultOverlay) toolResultOverlay.classList.remove('visible'); document.body.classList.remove('auto-label-busy'); }
-function showToolResultOverlay(success,message){ if (!toolResultOverlay) return; if (toolResultTitle) toolResultTitle.textContent = success ? '任务完成' : '任务失败'; if (toolResultText) toolResultText.textContent = message || (success ? '任务已完成，请点击确认按钮关闭提示。' : '任务执行失败，请点击确认按钮关闭提示。'); if (toolResultIcon){ toolResultIcon.className = success ? 'blocking-success-icon' : 'blocking-error-icon'; toolResultIcon.textContent = success ? '✓' : '×'; } if (toolResultConfirmBtn){ toolResultConfirmBtn.disabled = false; toolResultConfirmBtn.textContent = '确认'; } toolResultOverlay.classList.add('visible'); document.body.classList.add('auto-label-busy'); }
-if (toolForm) toolForm.addEventListener('submit', () => showToolOverlay());
-if (toolResultConfirmBtn) toolResultConfirmBtn.addEventListener('click', hideToolResultOverlay);
+{% endblock %}
+{% block page_scripts %}
 {% if result %}
-window.addEventListener('load', () => { hideToolOverlay(); showToolResultOverlay({{ 'true' if result.success else 'false' }}, {{ result.message | tojson }}); });
-{% endif %}
+<script>
+  window.CleanupPageConfig = {
+    resultSuccess: {{ 'true' if result.success else 'false' }},
+    resultMessage: {{ result.message | tojson }}
+  };
 </script>
+{% endif %}
+<script src="{{ url_for('static', filename='pages/cleanup.js') }}"></script>
 {% endblock %}

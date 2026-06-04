@@ -70,6 +70,48 @@ def count_yolo_classes(labels_dir: str):
     return {"total_boxes": total_boxes, "empty_files": empty_files, "class_count": dict(sorted(class_count.items(), key=lambda x: int(x[0])))}
 
 
+def count_yolo_matched_pairs(images_dir: str, labels_dir: str):
+    images_dir = _ensure_dir(images_dir)
+    labels_dir = _ensure_dir(labels_dir)
+    pairs, missing_labels, missing_images, images, labels = _pair_by_stem(images_dir, labels_dir)
+    if not pairs:
+        raise ValueError("未找到可同时匹配的图片-标注文件对")
+
+    class_count = defaultdict(int)
+    total_boxes = 0
+    empty_label_files = []
+    file_stats = []
+    for img_path, txt_path, stem in pairs:
+        lines = [line.strip() for line in txt_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if not lines:
+            empty_label_files.append(str(txt_path))
+            file_stats.append({"stem": stem, "image": str(img_path), "label": str(txt_path), "boxes": 0})
+            continue
+        box_count = 0
+        for line in lines:
+            parts = line.split()
+            if not parts:
+                continue
+            class_count[parts[0]] += 1
+            total_boxes += 1
+            box_count += 1
+        file_stats.append({"stem": stem, "image": str(img_path), "label": str(txt_path), "boxes": box_count})
+
+    return {
+        "total_images": len(images),
+        "total_labels": len(labels),
+        "matched_pairs": len(pairs),
+        "total_boxes": total_boxes,
+        "class_count": dict(sorted(class_count.items(), key=lambda x: int(x[0]))),
+        "missing_labels": missing_labels,
+        "missing_images": missing_images,
+        "empty_label_files": empty_label_files,
+        "file_stats": file_stats,
+        "images_dir": str(images_dir),
+        "labels_dir": str(labels_dir),
+    }
+
+
 def cleanup_yolo_dataset(images_dir: str, labels_dir: str, dry_run: bool = True):
     images_dir = _ensure_dir(images_dir)
     labels_dir = _ensure_dir(labels_dir)
@@ -233,7 +275,20 @@ def change_ids_in_labels(labels_dir: str, mapping: dict[int, int]):
     return {"updated_files": updated}
 
 
-def extract_frames(video_path: str, output_dir: str, mode="frame", interval=30, quality=95, width=None, height=None, prefix="frame", delete_source=False):
+def extract_frames(
+    video_path: str,
+    output_dir: str,
+    mode="frame",
+    interval=30,
+    quality=95,
+    width=None,
+    height=None,
+    prefix="frame",
+    delete_source=False,
+    output_format="jpg",
+    stop_event=None,
+    progress_callback=None,
+):
     video_path = Path(video_path)
     if not video_path.exists():
         raise FileNotFoundError("视频文件不存在")
@@ -241,26 +296,35 @@ def extract_frames(video_path: str, output_dir: str, mode="frame", interval=30, 
     if not cap.isOpened():
         raise RuntimeError("无法打开视频文件")
     fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
     frame_interval = int(interval if mode == "frame" else max(1, round(fps * float(interval))))
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     saved = []
     i = 0
+    stopped = False
+    ext = "png" if str(output_format).lower() == "png" else "jpg"
+    params = [cv2.IMWRITE_JPEG_QUALITY, int(quality)] if ext == "jpg" else []
     while True:
+        if stop_event is not None and stop_event.is_set():
+            stopped = True
+            break
         ret, frame = cap.read()
         if not ret:
             break
         if i % frame_interval == 0:
             if width and height:
                 frame = cv2.resize(frame, (int(width), int(height)))
-            name = out / f"{prefix}_{len(saved)+1:06d}.jpg"
-            cv2.imwrite(str(name), frame, [cv2.IMWRITE_JPEG_QUALITY, int(quality)])
+            name = out / f"{prefix}_{len(saved)+1:06d}.{ext}"
+            cv2.imwrite(str(name), frame, params)
             saved.append(str(name))
         i += 1
+        if progress_callback and (i % max(1, frame_interval) == 0 or (total_frames and i >= total_frames)):
+            progress_callback({"current_frame": i, "total_frames": total_frames, "saved": len(saved), "stopped": stopped})
     cap.release()
-    if delete_source:
+    if delete_source and not stopped:
         video_path.unlink()
-    return {"saved": saved, "output_dir": str(out)}
+    return {"saved": saved, "output_dir": str(out), "total_frames": total_frames, "saved_count": len(saved), "stopped": stopped}
 
 
 def record_rtsp_stream(rtsp_url: str, output_dir: str, segment_minutes=5, total_duration=None, prefix="recording"):

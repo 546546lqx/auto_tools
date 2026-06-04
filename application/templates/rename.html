@@ -1,78 +1,153 @@
 {% extends 'base.html' %}
 {% block title %}重命名文件 - YOLO 数据工具箱{% endblock %}
 {% block content %}
-<div class="tool-shell single">
-  <div class="tool-pane tool-scroll">
-    <div class="card">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
-          <div>
-            <h3 class="tool-page-title">重命名文件</h3>
-            <p class="tool-subtitle">用“表单区 + 结果区”分开呈现，方便在固定高度内查看。</p>
-          </div>
+<div class="rename-page">
+  <section class="rename-hero card mb-4">
+    <div>
+      <div class="eyebrow dark">Batch Rename</div>
+      <h1>统一重命名图片与标注文件</h1>
+      <p>检查 images 与 labels 是否按 stem 一一对应，再按相同序号批量重命名。页面只展示关键字段，避免无关调试信息干扰操作。</p>
+    </div>
+    <div class="rename-hero-actions">
+      <button type="button" class="btn btn-primary btn-lg" id="openRenameModalBtn">开始重命名</button>
+      <div class="text-muted small">先确认目录配对，再执行批量改名</div>
+    </div>
+  </section>
+
+  {% if result and result.success and result.data %}
+  {% set data = result.data %}
+  {% set debug = data.debug if data.debug else {} %}
+  {% set paired_count = debug.get('paired_count', data.changes|length) %}
+  {% set images_count = debug.get('images_count', 0) %}
+  {% set labels_count = debug.get('labels_count', 0) %}
+  {% set prefix_value = debug.get('prefix', form.get('prefix', 'frame_by')) %}
+  {% set images_dir_value = debug.get('images_dir', '—') %}
+  {% set labels_dir_value = debug.get('labels_dir', '—') %}
+  <section class="rename-summary-grid mb-4">
+    <div class="stat-card tone-blue">
+      <div class="stat-card-icon">OK</div>
+      <div class="stat-card-label">可重命名配对</div>
+      <div class="stat-card-value">{{ paired_count }}</div>
+      <div class="stat-card-desc">stem 完整匹配的图片与标注对</div>
+    </div>
+    <div class="stat-card tone-green">
+      <div class="stat-card-icon">IMG</div>
+      <div class="stat-card-label">图片 / 标注</div>
+      <div class="stat-card-value">{{ images_count }} / {{ labels_count }}</div>
+      <div class="stat-card-desc">参与配对检测的文件数量</div>
+    </div>
+    <div class="stat-card tone-amber">
+      <div class="stat-card-icon">DRY</div>
+      <div class="stat-card-label">执行模式</div>
+      <div class="stat-card-value">{{ '预览' if data.dry_run else '执行' }}</div>
+      <div class="stat-card-desc">{{ '仅生成改名预览' if data.dry_run else '已实际执行重命名' }}</div>
+    </div>
+  </section>
+
+  <section class="rename-content-grid">
+    <div class="card stats-panel">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow dark">Rules</div>
+          <h2>重命名规则</h2>
         </div>
-        {% if result %}
-        <div class="alert alert-{{ 'success' if result.success else 'danger' }}">{{ result.message }}</div>
-        {% endif %}
-        <form method="post" class="tool-compact d-flex flex-column gap-3" id="toolForm">
-          <div>
-            <label class="form-label">images 目录路径</label>
-            <div class="path-picker-row">
-              <div class="grow">
-                <input type="text" name="images_dir" id="images_dir" class="form-control" value="{{ form.get('images_dir', '') }}" placeholder="点击右侧按钮选择目录" readonly required>
-                <div class="path-preview {% if not form.get('images_dir', '') %}empty{% endif %}" id="images_dir_preview">{{ form.get('images_dir', '尚未选择路径') if form.get('images_dir', '') else '尚未选择路径' }}</div>
-              </div>
-              <button type="button" class="btn btn-secondary path-picker-btn" onclick="pickPath('images_dir')">选择路径</button>
-            </div>
-          </div>
-          <div>
-            <label class="form-label">labels 目录路径</label>
-            <div class="path-picker-row">
-              <div class="grow">
-                <input type="text" name="labels_dir" id="labels_dir" class="form-control" value="{{ form.get('labels_dir', '') }}" placeholder="点击右侧按钮选择目录" readonly required>
-                <div class="path-preview {% if not form.get('labels_dir', '') %}empty{% endif %}" id="labels_dir_preview">{{ form.get('labels_dir', '尚未选择路径') if form.get('labels_dir', '') else '尚未选择路径' }}</div>
-              </div>
-              <button type="button" class="btn btn-secondary path-picker-btn" onclick="pickPath('labels_dir')">选择路径</button>
-            </div>
-          </div>
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label">前缀</label>
-              <input type="text" name="prefix" class="form-control" value="{{ form.get('prefix', 'frame_by') }}">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">起始编号</label>
-              <input type="number" name="start" class="form-control" value="{{ form.get('start', '1') }}">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">补零位数</label>
-              <input type="number" name="digit" class="form-control" value="{{ form.get('digit', '6') }}">
-            </div>
-          </div>
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="dry_run" id="dry_run" {% if form.get('dry_run') %}checked{% endif %}>
-            <label class="form-check-label" for="dry_run">仅预览，不修改文件</label>
-          </div>
-          <div>
-            <button type="submit" class="btn btn-primary">执行重命名</button>
-          </div>
-        </form>
-        {% if result and result.data %}
-        <div class="card card-soft p-3 mt-3">
-          <div class="mb-2 fw-bold">结果详情</div>
-          <pre>{{ result.data | tojson(indent=2) }}</pre>
-        </div>
-        {% endif %}
-        {% if result and result.debug %}
-        <div class="card card-soft p-3 mt-3">
-          <div class="mb-2 fw-bold">调试日志</div>
-          <pre>{{ result.debug }}</pre>
-        </div>
-        {% endif %}
+        <span class="badge bg-light text-dark rounded-pill">Key Fields</span>
       </div>
+      <div class="compact-kv-list">
+        <div class="compact-kv-item"><span>前缀</span><strong>{{ prefix_value }}</strong></div>
+        <div class="compact-kv-item"><span>起始编号</span><strong>{{ form.get('start', '1') }}</strong></div>
+        <div class="compact-kv-item"><span>补零位数</span><strong>{{ form.get('digit', '6') }}</strong></div>
+        <div class="compact-kv-item"><span>改名数量</span><strong>{{ data.changes|length }}</strong></div>
+      </div>
+    </div>
+
+    <div class="card stats-panel">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow dark">Result</div>
+          <h2>结果数据</h2>
+        </div>
+        <span class="badge bg-primary-subtle text-primary rounded-pill">{{ data.changes|length }} 组</span>
+      </div>
+      <div class="compact-kv-list">
+        <div class="compact-kv-item"><span>images_dir</span><strong>{{ images_dir_value }}</strong></div>
+        <div class="compact-kv-item"><span>labels_dir</span><strong>{{ labels_dir_value }}</strong></div>
+        <div class="compact-kv-item"><span>matched_pairs</span><strong>{{ paired_count }}</strong></div>
+        <div class="compact-kv-item"><span>success</span><strong>{{ 'true' if result.success else 'false' }}</strong></div>
+      </div>
+    </div>
+  </section>
+  {% elif result and not result.success %}
+  <div class="alert alert-danger mb-0">{{ result.message }}</div>
+  {% else %}
+  <section class="empty-dashboard card">
+    <div class="empty-illustration">RENAME</div>
+    <h2>还没有执行重命名</h2>
+    <p>点击“开始重命名”选择数据目录，确认 images 与 labels 的对应关系后再执行批量改名。</p>
+    <button type="button" class="btn btn-primary" id="openRenameModalBtnEmpty">开始重命名</button>
+  </section>
+  {% endif %}
+</div>
+
+<div class="blocking-overlay" id="renameModalOverlay" aria-hidden="true">
+  <div class="blocking-modal rename-modal" role="dialog" aria-modal="true" aria-labelledby="renameModalTitle">
+    <div class="w-100">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow dark">Input Paths</div>
+          <h4 class="blocking-title mb-1" id="renameModalTitle">重命名图片与标注</h4>
+          <p class="blocking-text mb-0">请确认两个目录中的文件 stem 一致，否则重命名会直接失败。</p>
+        </div>
+        <button type="button" class="btn-close" aria-label="关闭" id="closeRenameModalBtn"></button>
+      </div>
+      <form method="post" class="tool-compact d-flex flex-column gap-3 rename-form" id="renameForm">
+        <div class="path-field">
+          <label class="form-label">images 目录路径</label>
+          <div class="path-picker-row">
+            <div class="grow">
+              <input type="text" name="images_dir" id="images_dir" class="form-control" value="{{ form.get('images_dir', '') }}" placeholder="点击右侧按钮选择目录" readonly required>
+              <div class="path-preview {% if not form.get('images_dir', '') %}empty{% endif %}" id="images_dir_preview">{{ form.get('images_dir', '尚未选择路径') if form.get('images_dir', '') else '尚未选择路径' }}</div>
+            </div>
+            <button type="button" class="btn btn-secondary path-picker-btn" data-path-picker="images_dir">选择路径</button>
+          </div>
+        </div>
+        <div class="path-field">
+          <label class="form-label">labels 目录路径</label>
+          <div class="path-picker-row">
+            <div class="grow">
+              <input type="text" name="labels_dir" id="labels_dir" class="form-control" value="{{ form.get('labels_dir', '') }}" placeholder="点击右侧按钮选择目录" readonly required>
+              <div class="path-preview {% if not form.get('labels_dir', '') %}empty{% endif %}" id="labels_dir_preview">{{ form.get('labels_dir', '尚未选择路径') if form.get('labels_dir', '') else '尚未选择路径' }}</div>
+            </div>
+            <button type="button" class="btn btn-secondary path-picker-btn" data-path-picker="labels_dir">选择路径</button>
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">前缀</label>
+            <input type="text" name="prefix" class="form-control" value="{{ form.get('prefix', 'frame_by') }}" placeholder="frame_by">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">起始编号</label>
+            <input type="number" name="start" class="form-control" value="{{ form.get('start', '1') }}" min="1">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">补零位数</label>
+            <input type="number" name="digit" class="form-control" value="{{ form.get('digit', '6') }}" min="1">
+          </div>
+        </div>
+        <div class="form-check rename-check">
+          <input class="form-check-input" type="checkbox" name="dry_run" id="dry_run" {% if form.get('dry_run') %}checked{% endif %}>
+          <label class="form-check-label" for="dry_run">仅预览，不修改文件</label>
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-2">
+          <button type="button" class="btn btn-outline-secondary" id="cancelRenameModalBtn">取消</button>
+          <button type="submit" class="btn btn-primary" id="submitRenameBtn">执行重命名</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
+
 <div class="blocking-overlay" id="toolOverlay" aria-hidden="true">
   <div class="blocking-modal" role="dialog" aria-modal="true" aria-labelledby="toolOverlayTitle">
     <div class="d-flex flex-column align-items-center text-center">
@@ -94,36 +169,15 @@
     </div>
   </div>
 </div>
-<script>
-function pickPath(targetId, selectionType='directory') {
-  fetch('/api/desktop-picker', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({selection_type: selectionType})})
-    .then(resp => resp.json().then(data => ({ok: resp.ok, data})))
-    .then(({ok, data}) => {
-      if (!ok || !data.success || !data.path) throw new Error(data.message || '未选择路径');
-      const input = document.getElementById(targetId);
-      const preview = document.getElementById(targetId + '_preview');
-      if (input) input.value = data.path;
-      if (preview) { preview.textContent = data.path; preview.classList.remove('empty'); }
-    })
-    .catch(err => alert(err.message || '无法选择路径'));
-}
-const toolForm = document.getElementById('toolForm');
-const toolOverlay = document.getElementById('toolOverlay');
-const toolOverlayText = document.getElementById('toolOverlayText');
-const toolSubmitBtn = document.querySelector('#toolForm button[type="submit"]');
-const toolResultOverlay = document.getElementById('toolResultOverlay');
-const toolResultTitle = document.getElementById('toolResultTitle');
-const toolResultText = document.getElementById('toolResultText');
-const toolResultIcon = document.getElementById('toolResultIcon');
-const toolResultConfirmBtn = document.getElementById('toolResultConfirmBtn');
-function showToolOverlay(message='请稍候，完成后会显示结果。'){ if (toolOverlayText) toolOverlayText.textContent = message; if (toolOverlay) toolOverlay.classList.add('visible'); document.body.classList.add('auto-label-busy'); if (toolSubmitBtn){ toolSubmitBtn.disabled = true; toolSubmitBtn.textContent = '正在执行...'; } }
-function hideToolOverlay(){ if (toolOverlay) toolOverlay.classList.remove('visible'); document.body.classList.remove('auto-label-busy'); if (toolSubmitBtn){ toolSubmitBtn.disabled = false; toolSubmitBtn.textContent = '执行重命名'; } }
-function hideToolResultOverlay(){ if (toolResultOverlay) toolResultOverlay.classList.remove('visible'); document.body.classList.remove('auto-label-busy'); }
-function showToolResultOverlay(success,message){ if (!toolResultOverlay) return; if (toolResultTitle) toolResultTitle.textContent = success ? '任务完成' : '任务失败'; if (toolResultText) toolResultText.textContent = message || (success ? '任务已完成，请点击确认按钮关闭提示。' : '任务执行失败，请点击确认按钮关闭提示。'); if (toolResultIcon){ toolResultIcon.className = success ? 'blocking-success-icon' : 'blocking-error-icon'; toolResultIcon.textContent = success ? '✓' : '×'; } if (toolResultConfirmBtn){ toolResultConfirmBtn.disabled = false; toolResultConfirmBtn.textContent = '确认'; } toolResultOverlay.classList.add('visible'); document.body.classList.add('auto-label-busy'); }
-if (toolForm) toolForm.addEventListener('submit', () => showToolOverlay());
-if (toolResultConfirmBtn) toolResultConfirmBtn.addEventListener('click', hideToolResultOverlay);
+{% endblock %}
+{% block page_scripts %}
 {% if result %}
-window.addEventListener('load', () => { hideToolOverlay(); showToolResultOverlay({{ 'true' if result.success else 'false' }}, {{ result.message | tojson }}); });
-{% endif %}
+<script>
+  window.RenamePageConfig = {
+    resultSuccess: {{ 'true' if result.success else 'false' }},
+    resultMessage: {{ result.message | tojson }}
+  };
 </script>
+{% endif %}
+<script src="{{ url_for('static', filename='pages/rename.js') }}"></script>
 {% endblock %}

@@ -38,7 +38,7 @@ def polygon_frame_preview():
     if not source:
         return jsonify({"success": False, "message": "缺少 source 参数"}), 400
 
-    preview_dir = Path("static") / "preview"
+    preview_dir = Path(__file__).resolve().parents[1] / "static" / "preview"
     preview_dir.mkdir(parents=True, exist_ok=True)
     preview_file = preview_dir / "polygon_frame_preview.jpg"
 

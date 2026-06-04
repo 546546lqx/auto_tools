@@ -1,68 +1,140 @@
 {% extends 'base.html' %}
-{% block title %}视频与RTSP - YOLO 数据工具箱{% endblock %}
+{% block title %}视频抽帧 - YOLO 数据工具箱{% endblock %}
 {% block content %}
-<div class="tool-shell single">
-  <div class="tool-pane tool-scroll">
-    <div class="card">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
-          <div>
-            <h3 class="tool-page-title">视频与 RTSP</h3>
-            <p class="tool-subtitle">将抽帧参数和输出结果分离，让主表单在一屏内更完整地显示。</p>
-          </div>
+<div class="video-page">
+  <section class="stats-hero card mb-4">
+    <div>
+      <div class="eyebrow dark">Frame Extraction</div>
+      <h1>视频与 RTSP 抽帧</h1>
+      <p>支持本地视频或 RTSP 源抽帧到输出目录。页面结构与统计页保持一致，只保留关键字段与结果摘要。</p>
+    </div>
+    <div class="stats-hero-actions">
+      <button type="button" class="btn btn-primary btn-lg" id="openVideoModalBtn">开始抽帧</button>
+      <div class="text-muted small">抽帧任务支持进度展示、随时停止，已保存的数据会保留</div>
+    </div>
+  </section>
+
+  {% if result and result.success and result.data %}
+  {% set data = result.data %}
+  <section class="stats-summary-grid mb-4">
+    <div class="stat-card tone-blue">
+      <div class="stat-card-icon">OK</div>
+      <div class="stat-card-label">保存帧数</div>
+      <div class="stat-card-value">{{ data.saved_count or (data.saved|length if data.saved else 0) }}</div>
+      <div class="stat-card-desc">当前任务已落盘的抽帧图片</div>
+    </div>
+    <div class="stat-card tone-green">
+      <div class="stat-card-icon">SRC</div>
+      <div class="stat-card-label">输入源</div>
+      <div class="stat-card-value">{{ data.source_name or '视频' }}</div>
+      <div class="stat-card-desc">视频文件或 RTSP 地址的关键字段</div>
+    </div>
+    <div class="stat-card tone-amber">
+      <div class="stat-card-icon">F</div>
+      <div class="stat-card-label">总帧数</div>
+      <div class="stat-card-value">{{ data.total_frames or 0 }}</div>
+      <div class="stat-card-desc">视频解码读取到的总帧数</div>
+    </div>
+    <div class="stat-card tone-indigo">
+      <div class="stat-card-icon">ST</div>
+      <div class="stat-card-label">任务状态</div>
+      <div class="stat-card-value">{{ '已停止' if data.stopped else '完成' }}</div>
+      <div class="stat-card-desc">停止后保留已保存帧，不会回滚</div>
+    </div>
+  </section>
+
+  <section class="stats-content-grid">
+    <div class="card stats-panel">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow dark">Summary</div>
+          <h2>抽帧结果摘要</h2>
         </div>
-        {% if result %}
-        <div class="alert alert-{{ 'success' if result.success else 'danger' }}">{{ result.message }}</div>
-        {% endif %}
-        <form method="post" class="tool-compact d-flex flex-column gap-3" id="toolForm">
-          <div>
-            <label class="form-label">RTSP 地址或本地视频文件路径</label>
-            <div class="path-picker-row">
-              <div class="grow">
-                <input type="text" name="source" id="source" class="form-control" value="{{ form.get('source', '') }}" placeholder="点击右侧按钮选择文件或目录" readonly required>
-                <div class="path-preview {% if not form.get('source', '') %}empty{% endif %}" id="source_preview">{{ form.get('source', '尚未选择路径') if form.get('source', '') else '尚未选择路径' }}</div>
-              </div>
-              <button type="button" class="btn btn-secondary path-picker-btn" onclick="pickPath('source', 'file')">选择文件</button>
-            </div>
-            <div class="form-text text-muted">如果需要选择目录，可把页面上的选择类型改成 directory。</div>
-          </div>
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label">帧间隔</label>
-              <input type="number" name="interval" class="form-control" value="{{ form.get('interval', '30') }}">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">输出格式</label>
-              <select name="output_format" class="form-select">
-                <option value="jpg" {% if form.get('output_format', 'jpg') == 'jpg' %}selected{% endif %}>jpg</option>
-                <option value="png" {% if form.get('output_format') == 'png' %}selected{% endif %}>png</option>
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">输出目录</label>
-              <div class="path-picker-row">
-                <div class="grow">
-                  <input type="text" name="output_dir" id="output_dir" class="form-control" value="{{ form.get('output_dir', '') }}" placeholder="点击右侧按钮选择目录" readonly required>
-                  <div class="path-preview {% if not form.get('output_dir', '') %}empty{% endif %}" id="output_dir_preview">{{ form.get('output_dir', '尚未选择路径') if form.get('output_dir', '') else '尚未选择路径' }}</div>
-                </div>
-                <button type="button" class="btn btn-secondary path-picker-btn" onclick="pickPath('output_dir')">选择路径</button>
-              </div>
-            </div>
-          </div>
-          <div>
-            <button type="submit" class="btn btn-success">执行抽帧</button>
-          </div>
-        </form>
-        {% if result and result.data %}
-        <div class="card card-soft p-3 mt-3">
-          <div class="mb-2 fw-bold">结果详情</div>
-          <pre>{{ result.data | tojson(indent=2) }}</pre>
-        </div>
-        {% endif %}
+        <span class="badge bg-light text-dark rounded-pill">Key Fields</span>
       </div>
+      <div class="compact-kv-list">
+        <div class="compact-kv-item"><span>输入源</span><strong>{{ data.source }}</strong></div>
+        <div class="compact-kv-item"><span>输出目录</span><strong>{{ data.output_dir }}</strong></div>
+        <div class="compact-kv-item"><span>抽帧间隔</span><strong>{{ data.interval }}</strong></div>
+        <div class="compact-kv-item"><span>输出格式</span><strong>{{ data.output_format }}</strong></div>
+      </div>
+    </div>
+
+    <div class="card stats-panel">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow dark">Progress</div>
+          <h2>任务进度与状态</h2>
+        </div>
+        <span class="badge bg-primary-subtle text-primary rounded-pill">Stopped Safe</span>
+      </div>
+      <div class="quality-list">
+        <div class="quality-item"><span>已保存文件</span><strong>{{ data.saved_count or (data.saved|length if data.saved else 0) }}</strong></div>
+        <div class="quality-item"><span>任务状态</span><strong>{{ '已停止' if data.stopped else '已完成' }}</strong></div>
+        <div class="quality-item"><span>数据保留</span><strong>{{ '是' if data.stopped else '是' }}</strong></div>
+      </div>
+    </div>
+  </section>
+  {% elif result and not result.success %}
+  <div class="alert alert-danger mb-0">{{ result.message }}</div>
+  {% else %}
+  <section class="empty-dashboard card">
+    <div class="empty-illustration">VID</div>
+    <h2>还没有抽帧结果</h2>
+    <p>点击“开始抽帧”选择视频或 RTSP 源，完成后将在这里展示保存帧数、总帧数和任务状态。</p>
+    <button type="button" class="btn btn-primary" id="openVideoModalBtnEmpty">开始抽帧</button>
+  </section>
+  {% endif %}
+</div>
+
+<div class="blocking-overlay" id="videoModalOverlay" aria-hidden="true">
+  <div class="blocking-modal stats-modal" role="dialog" aria-modal="true" aria-labelledby="videoModalTitle">
+    <div class="w-100">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow dark">Input Paths</div>
+          <h4 class="blocking-title mb-1" id="videoModalTitle">视频与 RTSP 抽帧</h4>
+          <p class="blocking-text mb-0">填写输入源和输出目录后即可启动任务，之后可随时停止，已保存的抽帧数据会保留。</p>
+        </div>
+        <button type="button" class="btn-close" aria-label="关闭" id="closeVideoModalBtn"></button>
+      </div>
+      <form method="post" class="tool-compact d-flex flex-column gap-3" id="videoForm">
+        <div class="path-field">
+          <label class="form-label">视频 / RTSP 地址</label>
+          <input type="text" name="source" id="source" class="form-control" value="{{ form.get('source', '') }}" placeholder="输入视频路径或 rtsp:// 地址" required>
+        </div>
+        <div class="path-field">
+          <label class="form-label">输出目录</label>
+          <div class="path-picker-row">
+            <div class="grow">
+              <input type="text" name="output_dir" id="output_dir" class="form-control" value="{{ form.get('output_dir', '') }}" placeholder="点击右侧按钮选择目录" readonly required>
+              <div class="path-preview {% if not form.get('output_dir', '') %}empty{% endif %}" id="output_dir_preview">{{ form.get('output_dir', '尚未选择路径') if form.get('output_dir', '') else '尚未选择路径' }}</div>
+            </div>
+            <button type="button" class="btn btn-secondary path-picker-btn" data-path-picker="output_dir">选择路径</button>
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">抽帧间隔</label>
+            <input type="number" min="1" name="interval" class="form-control" value="{{ form.get('interval', '30') }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">输出格式</label>
+            <select name="output_format" class="form-select">
+              <option value="jpg" {% if form.get('output_format', 'jpg') == 'jpg' %}selected{% endif %}>jpg</option>
+              <option value="png" {% if form.get('output_format') == 'png' %}selected{% endif %}>png</option>
+            </select>
+          </div>
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-2">
+          <button type="button" class="btn btn-outline-secondary" id="cancelVideoModalBtn">取消</button>
+          <button type="submit" class="btn btn-primary" id="submitVideoBtn">执行抽帧</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
+
 <div class="blocking-overlay" id="toolOverlay" aria-hidden="true">
   <div class="blocking-modal" role="dialog" aria-modal="true" aria-labelledby="toolOverlayTitle">
     <div class="d-flex flex-column align-items-center text-center">
@@ -70,6 +142,7 @@
       <h4 class="blocking-title" id="toolOverlayTitle">任务正在执行</h4>
       <p class="blocking-text" id="toolOverlayText">请稍候，完成后会显示结果。</p>
       <div class="blocking-progress" aria-hidden="true"><div class="blocking-progress-bar"></div></div>
+      <button type="button" class="btn btn-warning blocking-action-btn d-none" id="stopVideoBtn">停止抽帧</button>
     </div>
   </div>
 </div>
@@ -84,36 +157,15 @@
     </div>
   </div>
 </div>
-<script>
-function pickPath(targetId, selectionType='directory') {
-  fetch('/api/desktop-picker', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({selection_type: selectionType})})
-    .then(resp => resp.json().then(data => ({ok: resp.ok, data})))
-    .then(({ok, data}) => {
-      if (!ok || !data.success || !data.path) throw new Error(data.message || '未选择路径');
-      const input = document.getElementById(targetId);
-      const preview = document.getElementById(targetId + '_preview');
-      if (input) input.value = data.path;
-      if (preview) { preview.textContent = data.path; preview.classList.remove('empty'); }
-    })
-    .catch(err => alert(err.message || '无法选择路径'));
-}
-const toolForm = document.getElementById('toolForm');
-const toolOverlay = document.getElementById('toolOverlay');
-const toolOverlayText = document.getElementById('toolOverlayText');
-const toolSubmitBtn = document.querySelector('#toolForm button[type="submit"]');
-const toolResultOverlay = document.getElementById('toolResultOverlay');
-const toolResultTitle = document.getElementById('toolResultTitle');
-const toolResultText = document.getElementById('toolResultText');
-const toolResultIcon = document.getElementById('toolResultIcon');
-const toolResultConfirmBtn = document.getElementById('toolResultConfirmBtn');
-function showToolOverlay(message='请稍候，完成后会显示结果。'){ if (toolOverlayText) toolOverlayText.textContent = message; if (toolOverlay) toolOverlay.classList.add('visible'); document.body.classList.add('auto-label-busy'); if (toolSubmitBtn){ toolSubmitBtn.disabled = true; toolSubmitBtn.textContent = '正在执行...'; } }
-function hideToolOverlay(){ if (toolOverlay) toolOverlay.classList.remove('visible'); document.body.classList.remove('auto-label-busy'); if (toolSubmitBtn){ toolSubmitBtn.disabled = false; toolSubmitBtn.textContent = '执行抽帧'; } }
-function hideToolResultOverlay(){ if (toolResultOverlay) toolResultOverlay.classList.remove('visible'); document.body.classList.remove('auto-label-busy'); }
-function showToolResultOverlay(success,message){ if (!toolResultOverlay) return; if (toolResultTitle) toolResultTitle.textContent = success ? '任务完成' : '任务失败'; if (toolResultText) toolResultText.textContent = message || (success ? '任务已完成，请点击确认按钮关闭提示。' : '任务执行失败，请点击确认按钮关闭提示。'); if (toolResultIcon){ toolResultIcon.className = success ? 'blocking-success-icon' : 'blocking-error-icon'; toolResultIcon.textContent = success ? '✓' : '×'; } if (toolResultConfirmBtn){ toolResultConfirmBtn.disabled = false; toolResultConfirmBtn.textContent = '确认'; } toolResultOverlay.classList.add('visible'); document.body.classList.add('auto-label-busy'); }
-if (toolForm) toolForm.addEventListener('submit', () => showToolOverlay());
-if (toolResultConfirmBtn) toolResultConfirmBtn.addEventListener('click', hideToolResultOverlay);
+{% endblock %}
+{% block page_scripts %}
 {% if result %}
-window.addEventListener('load', () => { hideToolOverlay(); showToolResultOverlay({{ 'true' if result.success else 'false' }}, {{ result.message | tojson }}); });
-{% endif %}
+<script>
+  window.VideoPageConfig = {
+    resultSuccess: {{ 'true' if result.success else 'false' }},
+    resultMessage: {{ result.message | tojson }}
+  };
 </script>
+{% endif %}
+<script src="{{ url_for('static', filename='pages/video.js') }}"></script>
 {% endblock %}

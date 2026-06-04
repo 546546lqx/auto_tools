@@ -1,42 +1,64 @@
 {% extends 'base.html' %}
 {% block title %}首页 - YOLO 数据工具箱{% endblock %}
 {% block content %}
-<div class="card hero-card p-4 mb-4">
-  <div class="d-flex flex-column gap-2">
-    <div class="small" style="letter-spacing:.14em;text-transform:uppercase;opacity:.88;">YOLO 数据工具箱</div>
-    <h1 class="tool-page-title">快速处理数据集、视频与标注的本地工具面板</h1>
-    <p class="tool-subtitle" style="color:rgba(255,255,255,.84)">首页保留完整展示感，其它页面采用更紧凑的工具布局，尽量在单屏内完成操作。</p>
-    <div class="hero-grid">
-      <div class="hero-stat"><strong>更少滚动</strong><span>常用页面尽量压缩到视口内</span></div>
-      <div class="hero-stat"><strong>更快操作</strong><span>关键输入与结果紧凑排布</span></div>
-      <div class="hero-stat"><strong>更好阅读</strong><span>结果面板独立滚动，不影响表单</span></div>
+<section class="home-hero card hero-card mb-4">
+  <div class="home-hero-content">
+    <div class="eyebrow">YOLO Dataset Workbench</div>
+    <h1>一站式完成数据集统计、清理、划分与标注处理</h1>
+    <p>面向本地 YOLO 数据处理流程设计，目录选择、任务执行和结果查看都集中在轻量面板中，减少重复操作。</p>
+    <div class="hero-actions">
+      <a class="btn btn-hero" href="{{ url_for('stats.stats_page') }}">开始统计</a>
+      <a class="btn btn-ghost-light" href="{{ url_for('auto_label.auto_label_page') }}">自动化标注</a>
     </div>
   </div>
-</div>
-<div class="row g-4">
-  {% for title, desc, endpoint, btn in [
-    ('统计', '统计 YOLO 标注类别、总框数和空文件。', 'stats.stats_page', '进入统计'),
-    ('清理', '预览或清理孤立图片、孤立标注文件。', 'stats.cleanup_page', '进入清理'),
-    ('划分', '将数据集按比例划分为 train / val / test。', 'split.split_page', '进入划分'),
-    ('重命名', '批量重命名图片与标注文件。', 'split.rename_page', '进入重命名'),
-    ('格式转换', '将 VOC 等格式转换为 YOLO。', 'convert.convert_page', '进入转换'),
-    ('视频与 RTSP', '对视频或 RTSP 源进行抽帧处理。', 'video.video_page', '进入视频'),
-    ('多边形标注', '进行多边形标注并导出点位信息。', 'polygon.polygon_page', '进入标注'),
-    ('自动化标注', '使用自定义模型批量生成 YOLO 标注文件。', 'auto_label.auto_label_page', '进入自动标注')
+  <div class="home-hero-panel">
+    <div class="panel-glow"></div>
+    <div class="mini-window">
+      <div class="mini-window-bar"><span></span><span></span><span></span></div>
+      <div class="mini-metric"><strong>8</strong><span>核心工具</span></div>
+      <div class="mini-line wide"></div>
+      <div class="mini-line"></div>
+      <div class="mini-progress"><span style="width:76%"></span></div>
+      <div class="mini-tags"><span>YOLO</span><span>Labels</span><span>Video</span></div>
+    </div>
+  </div>
+  <div class="hero-grid home-hero-stats">
+    <div class="hero-stat"><strong>更少滚动</strong><span>常用页面尽量压缩到视口内</span></div>
+    <div class="hero-stat"><strong>更快操作</strong><span>关键输入与结果紧凑排布</span></div>
+    <div class="hero-stat"><strong>更好阅读</strong><span>结果面板独立滚动，不影响表单</span></div>
+  </div>
+</section>
+
+<section class="section-heading mb-3">
+  <div>
+    <div class="eyebrow dark">Tools</div>
+    <h2>选择一个处理流程</h2>
+  </div>
+  <p>从统计到自动化标注，每个页面保持结构与脚本分离，便于继续扩展。</p>
+</section>
+
+<div class="feature-grid">
+  {% for icon, title, desc, endpoint, btn, tone in [
+    ('STAT', '统计', '统计 YOLO 标注类别、总框数、空文件与文件匹配情况。', 'stats.stats_page', '进入统计', 'blue'),
+    ('CLEAN', '清理', '预览或清理孤立图片、孤立标注文件，保持数据集一致。', 'stats.cleanup_page', '进入清理', 'green'),
+    ('SPLIT', '划分', '将数据集按比例划分为 train / val / test。', 'split.split_page', '进入划分', 'purple'),
+    ('NAME', '重命名', '批量重命名图片与标注文件，适配统一命名规范。', 'split.rename_page', '进入重命名', 'amber'),
+    ('CONV', '格式转换', '将 VOC / COCO 等格式转换为 YOLO 标注格式。', 'convert.convert_page', '进入转换', 'cyan'),
+    ('VIDEO', '视频与 RTSP', '对视频或 RTSP 源进行抽帧处理，快速生成图片数据。', 'video.video_page', '进入视频', 'rose'),
+    ('POLY', '多边形标注', '绘制多边形区域并导出点位信息。', 'polygon.polygon_page', '进入标注', 'indigo'),
+    ('AUTO', '自动化标注', '使用自定义模型批量生成 YOLO 标注文件。', 'auto_label.auto_label_page', '进入自动标注', 'emerald')
   ] %}
-  <div class="col-md-6 col-lg-4">
-    <div class="card h-100 feature-card">
-      <div class="card-body d-flex flex-column gap-3">
-        <div>
-          <h5 class="mb-2">{{ title }}</h5>
-          <p class="text-muted mb-0">{{ desc }}</p>
-        </div>
-        <div class="mt-auto">
-          <a class="btn btn-primary" href="{{ url_for(endpoint) }}">{{ btn }}</a>
-        </div>
-      </div>
+  <a class="card feature-card feature-card-modern tone-{{ tone }}" href="{{ url_for(endpoint) }}">
+    <div class="feature-icon" aria-hidden="true">{{ icon }}</div>
+    <div class="feature-copy">
+      <h3>{{ title }}</h3>
+      <p>{{ desc }}</p>
     </div>
-  </div>
+    <div class="feature-footer">
+      <span>{{ btn }}</span>
+      <span class="feature-arrow">→</span>
+    </div>
+  </a>
   {% endfor %}
 </div>
 {% endblock %}

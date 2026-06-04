@@ -1,54 +1,125 @@
 {% extends 'base.html' %}
 {% block title %}划分数据集 - YOLO 数据工具箱{% endblock %}
 {% block content %}
-<div class="tool-shell single">
-  <div class="tool-pane tool-scroll">
-    <div class="card">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
-          <div>
-            <h3 class="tool-page-title">划分数据集</h3>
-            <p class="tool-subtitle">把需要反复查看的结果区独立出来，表单保持紧凑。</p>
-          </div>
+<div class="split-page">
+  <section class="split-hero card mb-4">
+    <div>
+      <div class="eyebrow dark">Dataset Split</div>
+      <h1>划分数据集，保持训练流程更清晰</h1>
+      <p>选择数据集根目录后，按比例自动生成训练集与验证集，结果会以更易读的方式展示在页面中。</p>
+    </div>
+    <div class="split-hero-actions">
+      <button type="button" class="btn btn-primary btn-lg" id="openSplitModalBtn">开始划分</button>
+      <div class="text-muted small">支持目录选择、比例校验与执行结果提示</div>
+    </div>
+  </section>
+
+  {% if result and result.success and result.data %}
+  {% set data = result.data %}
+  <section class="stats-summary-grid split-summary-grid mb-4">
+    <div class="stat-card tone-blue">
+      <div class="stat-card-icon">TRN</div>
+      <div class="stat-card-label">训练集样本</div>
+      <div class="stat-card-value">{{ data.get('train', data.get('train_count', data.get('total_train', data.get('train_images', 0)))) }}</div>
+      <div class="stat-card-desc">训练集图片数量</div>
+    </div>
+    <div class="stat-card tone-green">
+      <div class="stat-card-icon">VAL</div>
+      <div class="stat-card-label">验证集样本</div>
+      <div class="stat-card-value">{{ data.get('val', data.get('val_count', data.get('total_val', data.get('val_images', 0)))) }}</div>
+      <div class="stat-card-desc">验证集图片数量</div>
+    </div>
+    <div class="stat-card tone-amber">
+      <div class="stat-card-icon">ALL</div>
+      <div class="stat-card-label">总样本数</div>
+      <div class="stat-card-value">{{ data.get('total', data.get('total_count', data.get('images', 0))) }}</div>
+      <div class="stat-card-desc">参与划分的图片总数</div>
+    </div>
+    <div class="stat-card tone-indigo">
+      <div class="stat-card-icon">RAT</div>
+      <div class="stat-card-label">训练比例</div>
+      <div class="stat-card-value">{{ (data.get('train_ratio', 0.8) * 100)|round|int }}%</div>
+      <div class="stat-card-desc">当前设置的 train 比例</div>
+    </div>
+  </section>
+
+  <section class="stats-content-grid split-content-grid">
+    <div class="card stats-panel">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow dark">Overview</div>
+          <h2>划分结果概览</h2>
         </div>
-        {% if result %}
-        <div class="alert alert-{{ 'success' if result.success else 'danger' }}">{{ result.message }}</div>
-        {% endif %}
-        <form method="post" class="tool-compact d-flex flex-column gap-3" id="toolForm">
-          <div>
-            <label class="form-label">数据集根目录</label>
-            <div class="path-picker-row">
-              <div class="grow">
-                <input type="text" name="data_root" id="data_root" class="form-control" value="{{ form.get('data_root', '') }}" placeholder="点击右侧按钮选择目录" readonly required>
-                <div class="path-preview {% if not form.get('data_root', '') %}empty{% endif %}" id="data_root_preview">{{ form.get('data_root', '尚未选择路径') if form.get('data_root', '') else '尚未选择路径' }}</div>
-              </div>
-              <button type="button" class="btn btn-secondary path-picker-btn" onclick="pickPath('data_root')">选择路径</button>
-            </div>
-          </div>
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label">Train 比例</label>
-              <input type="number" step="0.01" min="0" max="1" name="train_ratio" class="form-control" value="{{ form.get('train_ratio', '0.8') }}">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Val 比例</label>
-              <input type="number" step="0.01" min="0" max="1" name="val_ratio" class="form-control" value="{{ form.get('val_ratio', '0.2') }}">
-            </div>
-          </div>
-          <div class="form-text text-muted">当前仅按 train 和 val 两部分划分，比例之和需为 1。</div>
-          <div>
-            <button type="submit" class="btn btn-success">执行划分</button>
-          </div>
-        </form>
-        {% if result and result.data %}
-        <div class="card card-soft p-3 mt-3">
-          <pre>{{ result.data | tojson(indent=2) }}</pre>
-        </div>
-        {% endif %}
+        <span class="badge bg-light text-dark rounded-pill">Quick View</span>
       </div>
+      <div class="quality-list">
+        <div class="quality-item"><span>训练集</span><strong>{{ data.get('train', 0) }}</strong></div>
+        <div class="quality-item"><span>验证集</span><strong>{{ data.get('val', 0) }}</strong></div>
+        <div class="quality-item"><span>总样本</span><strong>{{ data.get('total', 0) }}</strong></div>
+      </div>
+    </div>
+  </section>
+  {% elif result and not result.success %}
+  <div class="alert alert-danger mb-0">{{ result.message }}</div>
+  {% else %}
+  <section class="empty-dashboard card split-empty-dashboard">
+    <div class="empty-illustration">SPLIT</div>
+    <h2>还没有开始划分</h2>
+    <p>点击“开始划分”选择数据集根目录，完成后会在这里显示训练集、验证集和详细结果。</p>
+    <button type="button" class="btn btn-primary" id="openSplitModalBtnEmpty">开始划分</button>
+  </section>
+  {% endif %}
+</div>
+
+<div class="blocking-overlay" id="splitModalOverlay" aria-hidden="true">
+  <div class="blocking-modal stats-modal" role="dialog" aria-modal="true" aria-labelledby="splitModalTitle">
+    <div class="w-100">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow dark">Input Paths</div>
+          <h4 class="blocking-title mb-1" id="splitModalTitle">划分数据集</h4>
+          <p class="blocking-text mb-0">选择数据集根目录并设置比例，点击执行后自动生成结果。</p>
+        </div>
+        <button type="button" class="btn-close" aria-label="关闭" id="closeSplitModalBtn"></button>
+      </div>
+      <form method="post" class="tool-compact d-flex flex-column gap-3" id="splitForm">
+        <div class="path-field">
+          <label class="form-label">数据集根目录</label>
+          <div class="path-picker-row">
+            <div class="grow">
+              <input type="text" name="data_root" id="data_root" class="form-control" value="{{ form.get('data_root', '') }}" placeholder="点击右侧按钮选择目录" readonly required>
+              <div class="path-preview {% if not form.get('data_root', '') %}empty{% endif %}" id="data_root_preview">{{ form.get('data_root', '尚未选择路径') if form.get('data_root', '') else '尚未选择路径' }}</div>
+            </div>
+            <button type="button" class="btn btn-secondary path-picker-btn" data-path-picker="data_root">选择路径</button>
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Train 比例</label>
+            <input type="number" step="0.01" min="0" max="1" name="train_ratio" id="train_ratio" class="form-control" value="{{ form.get('train_ratio', '0.8') }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Val 比例</label>
+            <input type="number" step="0.01" min="0" max="1" name="val_ratio" id="val_ratio" class="form-control" value="{{ form.get('val_ratio', '0.2') }}">
+          </div>
+        </div>
+        <div class="split-meter">
+          <div class="split-meter-header">
+            <span>比例校验</span>
+            <strong id="splitRatioText">80% / 20%</strong>
+          </div>
+          <div class="split-meter-bar"><i id="splitRatioBar" style="width: 80%"></i></div>
+          <div class="form-text text-muted">Train 和 Val 比例之和需等于 1。</div>
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-2">
+          <button type="button" class="btn btn-outline-secondary" id="cancelSplitModalBtn">取消</button>
+          <button type="submit" class="btn btn-primary" id="submitSplitBtn">执行划分</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
+
 <div class="blocking-overlay" id="toolOverlay" aria-hidden="true">
   <div class="blocking-modal" role="dialog" aria-modal="true" aria-labelledby="toolOverlayTitle">
     <div class="d-flex flex-column align-items-center text-center">
@@ -59,7 +130,7 @@
     </div>
   </div>
 </div>
-<div class="blocking-overlay" id="toolResultOverlay" aria-hidden="true">
+<div class="blocking-overlay" id="toolResultOverlay" aria-hidden="true" inert>
   <div class="blocking-modal" role="dialog" aria-modal="true" aria-labelledby="toolResultTitle">
     <div class="d-flex flex-column align-items-center text-center">
       <div id="toolResultIcon" class="blocking-spinner" aria-hidden="true"></div>
@@ -70,36 +141,15 @@
     </div>
   </div>
 </div>
-<script>
-function pickPath(targetId, selectionType='directory') {
-  fetch('/api/desktop-picker', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({selection_type: selectionType})})
-    .then(resp => resp.json().then(data => ({ok: resp.ok, data})))
-    .then(({ok, data}) => {
-      if (!ok || !data.success || !data.path) throw new Error(data.message || '未选择路径');
-      const input = document.getElementById(targetId);
-      const preview = document.getElementById(targetId + '_preview');
-      if (input) input.value = data.path;
-      if (preview) { preview.textContent = data.path; preview.classList.remove('empty'); }
-    })
-    .catch(err => alert(err.message || '无法选择路径'));
-}
-const toolForm = document.getElementById('toolForm');
-const toolOverlay = document.getElementById('toolOverlay');
-const toolOverlayText = document.getElementById('toolOverlayText');
-const toolSubmitBtn = document.querySelector('#toolForm button[type="submit"]');
-const toolResultOverlay = document.getElementById('toolResultOverlay');
-const toolResultTitle = document.getElementById('toolResultTitle');
-const toolResultText = document.getElementById('toolResultText');
-const toolResultIcon = document.getElementById('toolResultIcon');
-const toolResultConfirmBtn = document.getElementById('toolResultConfirmBtn');
-function showToolOverlay(message='请稍候，完成后会显示结果。'){ if (toolOverlayText) toolOverlayText.textContent = message; if (toolOverlay) toolOverlay.classList.add('visible'); document.body.classList.add('auto-label-busy'); if (toolSubmitBtn){ toolSubmitBtn.disabled = true; toolSubmitBtn.textContent = '正在执行...'; } }
-function hideToolOverlay(){ if (toolOverlay) toolOverlay.classList.remove('visible'); document.body.classList.remove('auto-label-busy'); if (toolSubmitBtn){ toolSubmitBtn.disabled = false; toolSubmitBtn.textContent = '执行划分'; } }
-function hideToolResultOverlay(){ if (toolResultOverlay) toolResultOverlay.classList.remove('visible'); document.body.classList.remove('auto-label-busy'); }
-function showToolResultOverlay(success,message){ if (!toolResultOverlay) return; if (toolResultTitle) toolResultTitle.textContent = success ? '任务完成' : '任务失败'; if (toolResultText) toolResultText.textContent = message || (success ? '任务已完成，请点击确认按钮关闭提示。' : '任务执行失败，请点击确认按钮关闭提示。'); if (toolResultIcon){ toolResultIcon.className = success ? 'blocking-success-icon' : 'blocking-error-icon'; toolResultIcon.textContent = success ? '✓' : '×'; } if (toolResultConfirmBtn){ toolResultConfirmBtn.disabled = false; toolResultConfirmBtn.textContent = '确认'; } toolResultOverlay.classList.add('visible'); document.body.classList.add('auto-label-busy'); }
-if (toolForm) toolForm.addEventListener('submit', () => showToolOverlay());
-if (toolResultConfirmBtn) toolResultConfirmBtn.addEventListener('click', hideToolResultOverlay);
+{% endblock %}
+{% block page_scripts %}
 {% if result %}
-window.addEventListener('load', () => { hideToolOverlay(); showToolResultOverlay({{ 'true' if result.success else 'false' }}, {{ result.message | tojson }}); });
-{% endif %}
+<script>
+  window.SplitPageConfig = {
+    resultSuccess: {{ 'true' if result.success else 'false' }},
+    resultMessage: {{ result.message | tojson }}
+  };
 </script>
+{% endif %}
+<script src="{{ url_for('static', filename='pages/split.js') }}"></script>
 {% endblock %}

@@ -8,7 +8,7 @@
         <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
           <div>
             <h3 class="tool-page-title">格式转换</h3>
-            <p class="tool-subtitle">以更紧凑的卡片式分区展示输入项、映射文本和结果。</p>
+            <p class="tool-subtitle">将 VOC / COCO 等数据源转换为 YOLO 标注格式。</p>
           </div>
         </div>
         {% if result %}
@@ -66,90 +66,7 @@
     </div>
   </div>
 </div>
-<div class="blocking-overlay" id="toolOverlay" aria-hidden="true">
-  <div class="blocking-modal" role="dialog" aria-modal="true" aria-labelledby="toolOverlayTitle">
-    <div class="d-flex flex-column align-items-center text-center">
-      <div class="blocking-spinner" aria-hidden="true"></div>
-      <h4 class="blocking-title" id="toolOverlayTitle">任务正在执行</h4>
-      <p class="blocking-text" id="toolOverlayText">请稍候，完成后会显示结果。</p>
-      <div class="blocking-progress" aria-hidden="true"><div class="blocking-progress-bar"></div></div>
-    </div>
-  </div>
-</div>
-<div class="blocking-overlay" id="toolResultOverlay" aria-hidden="true">
-  <div class="blocking-modal" role="dialog" aria-modal="true" aria-labelledby="toolResultTitle">
-    <div class="d-flex flex-column align-items-center text-center">
-      <div id="toolResultIcon" class="blocking-spinner" aria-hidden="true"></div>
-      <h4 class="blocking-title" id="toolResultTitle">任务完成</h4>
-      <p class="blocking-text" id="toolResultText">任务已完成，请点击确认按钮关闭提示。</p>
-      <div class="blocking-progress" aria-hidden="true"><div class="blocking-progress-bar"></div></div>
-      <button type="button" class="btn btn-primary blocking-action-btn" id="toolResultConfirmBtn">确认</button>
-    </div>
-  </div>
-</div>
-<script>
-const toolForm = document.getElementById('toolForm');
-const toolOverlay = document.getElementById('toolOverlay');
-const toolOverlayText = document.getElementById('toolOverlayText');
-const toolSubmitBtn = document.querySelector('#toolForm button[type="submit"]');
-const toolResultOverlay = document.getElementById('toolResultOverlay');
-const toolResultTitle = document.getElementById('toolResultTitle');
-const toolResultText = document.getElementById('toolResultText');
-const toolResultIcon = document.getElementById('toolResultIcon');
-const toolResultConfirmBtn = document.getElementById('toolResultConfirmBtn');
-let toolResultDismissTimer = null;
-
-function showToolOverlay(message = '请稍候，完成后会显示结果。') {
-  if (toolOverlayText) toolOverlayText.textContent = message;
-  if (toolOverlay) toolOverlay.classList.add('visible');
-  document.body.classList.add('auto-label-busy');
-  if (toolSubmitBtn) {
-    toolSubmitBtn.disabled = true;
-    toolSubmitBtn.textContent = '正在执行...';
-  }
-}
-
-function hideToolOverlay() {
-  if (toolOverlay) toolOverlay.classList.remove('visible');
-  document.body.classList.remove('auto-label-busy');
-  if (toolSubmitBtn) {
-    toolSubmitBtn.disabled = false;
-    toolSubmitBtn.textContent = '执行转换';
-  }
-}
-
-function hideToolResultOverlay() {
-  if (toolResultDismissTimer) {
-    clearTimeout(toolResultDismissTimer);
-    toolResultDismissTimer = null;
-  }
-  if (toolResultOverlay) toolResultOverlay.classList.remove('visible');
-  document.body.classList.remove('auto-label-busy');
-}
-
-function showToolResultOverlay(success, message) {
-  if (!toolResultOverlay) return;
-  if (toolResultTitle) toolResultTitle.textContent = success ? '任务完成' : '任务失败';
-  if (toolResultText) toolResultText.textContent = message || (success ? '任务已完成，请点击确认按钮关闭提示。' : '任务执行失败，请点击确认按钮关闭提示。');
-  if (toolResultIcon) {
-    toolResultIcon.className = success ? 'blocking-success-icon' : 'blocking-error-icon';
-    toolResultIcon.textContent = success ? '✓' : '×';
-  }
-  if (toolResultConfirmBtn) {
-    toolResultConfirmBtn.disabled = false;
-    toolResultConfirmBtn.textContent = '确认';
-  }
-  toolResultOverlay.classList.add('visible');
-  document.body.classList.add('auto-label-busy');
-}
-
-if (toolForm) toolForm.addEventListener('submit', () => showToolOverlay());
-if (toolResultConfirmBtn) toolResultConfirmBtn.addEventListener('click', hideToolResultOverlay);
-{% if result %}
-window.addEventListener('load', () => {
-  hideToolOverlay();
-  showToolResultOverlay({{ 'true' if result.success else 'false' }}, {{ result.message | tojson }});
-});
-{% endif %}
-</script>
+{% endblock %}
+{% block page_scripts %}
+<script src="{{ url_for('static', filename='pages/convert.js') }}"></script>
 {% endblock %}

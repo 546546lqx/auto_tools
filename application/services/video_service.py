@@ -8,9 +8,12 @@ from tools.web_tools import extract_frames
 
 @dataclass
 class VideoService:
-    def extract_frames(self, source: str, output_dir: str, interval: int = 30, output_format: str = "jpg"):
+    def extract_frames(self, source: str, output_dir: str, interval: int = 30, output_format: str = "jpg", stop_event=None, progress_callback=None):
         return extract_frames(
             video_path=str(require_existing_path(source, "视频文件路径")),
             output_dir=output_dir,
             interval=interval,
+            output_format=output_format,
+            stop_event=stop_event,
+            progress_callback=progress_callback,
         )

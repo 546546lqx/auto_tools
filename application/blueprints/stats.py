@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import json
+from pprint import pformat
+
 from flask import Blueprint, render_template, request
 
 from application.services.stats_service import StatsService
@@ -8,8 +9,8 @@ from application.services.stats_service import StatsService
 bp = Blueprint("stats", __name__)
 
 
-def _debug_summary(title: str, payload: dict) -> str:
-    return f"{title}\n" + json.dumps(payload, ensure_ascii=False, indent=2)
+def _debug_summary(title: str, data: dict) -> str:
+    return f"{title}\n" + pformat(data, width=100, sort_dicts=False)
 
 
 @bp.get("/stats")
@@ -23,10 +24,10 @@ def stats_submit():
     labels_dir = request.form.get("labels_dir", "").strip()
     images_dir = request.form.get("images_dir", "").strip()
     try:
-        result = service.count_classes(labels_dir, images_dir or None)
-        return render_template("stats.html", result={"success": True, "message": "统计完成", "data": result, "debug": _debug_summary("统计调试信息", result)}, form=request.form)
+        result = service.count_classes(labels_dir, images_dir)
+        return render_template("stats.html", result={"success": True, "message": "统计完成", "data": result}, form=request.form)
     except Exception as exc:
-        return render_template("stats.html", result={"success": False, "message": str(exc), "data": {}, "debug": f"统计失败\nlabels_dir={labels_dir}\nimages_dir={images_dir}\nerror={exc}"}, form=request.form)
+        return render_template("stats.html", result={"success": False, "message": str(exc), "data": {}}, form=request.form)
 
 
 @bp.get("/cleanup")
