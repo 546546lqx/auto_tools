@@ -109,6 +109,8 @@
 
   if (uploadInput) uploadInput.addEventListener('change', function(){ const file = uploadInput.files && uploadInput.files[0]; if (!file) return; const url = URL.createObjectURL(file); if (state.imageUrl && state.imageUrl.startsWith('blob:')) URL.revokeObjectURL(state.imageUrl); loadImageFromUrl(url, file.name); });
   if (sourceType) sourceType.addEventListener('change', switchPolySource);
+  if (rtspSource) rtspSource.addEventListener('change', function(){ if (state.mode === 'rtsp' && rtspSource.value.trim()) loadPolyRtspFrame(); });
+  if (mp4Input) mp4Input.addEventListener('change', function(){ if (state.mode === 'mp4' && mp4Input.files && mp4Input.files[0]) loadPolyMp4Frame(); });
   if (loadRtspFrameBtn) loadRtspFrameBtn.addEventListener('click', loadPolyRtspFrame);
   if (loadMp4FrameBtn) loadMp4FrameBtn.addEventListener('click', loadPolyMp4Frame);
   if (downloadTxtBtn) downloadTxtBtn.addEventListener('click', downloadPolyTxt);
