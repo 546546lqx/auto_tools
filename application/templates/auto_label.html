@@ -70,7 +70,7 @@
         </div>
 
         <div class="alert alert-info">
-          当前实现按“模型识别类别名 → 你填写的 id”进行映射；“需要自己标注额外框”选项仅保留 UI，暂不启用。
+          现在这里使用更简单的“标签列表式”填写：点一下添加类别名，系统会按顺序自动编号为 0、1、2...。
         </div>
 
         <form method="post" class="tool-compact d-flex flex-column gap-3" id="autoLabelForm">
@@ -121,8 +121,16 @@
 
           <div>
             <label class="form-label">映射关系</label>
-            <textarea name="mapping_text" id="mapping_text" class="form-control" rows="5" placeholder="person-->0\ncar-->1" required>{{ form.get('mapping_text', 'person-->0\ncar-->1') }}</textarea>
-            <div class="form-text">左边填写模型识别到的类别名，右边填写要保存到 txt 的 id；自动保存为 labels 文件夹下的 classes.txt。</div>
+            <div class="card card-soft p-3">
+              <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                <button type="button" class="btn btn-primary btn-sm" onclick="addMappingTag()">+ 添加类别</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadMappingExample()">载入示例</button>
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearMappingTags()">清空</button>
+              </div>
+              <div id="mappingTags" class="d-flex flex-column gap-2"></div>
+              <div class="form-text mt-3">拖拽排序会自动决定编号顺序，第一项对应 0，第二项对应 1，以此类推。</div>
+              <input type="hidden" name="mapping_text" id="mapping_text" value="{{ form.get('mapping_text', 'person\ncar\nbicycle') }}" required>
+            </div>
           </div>
 
           <div class="form-check">
@@ -306,6 +314,80 @@ async function refreshModelList(selectPreferredPath = '') {
   if (selectPreferredPath) select.value = selectPreferredPath;
 }
 
+function getMappingNames() {
+  return Array.from(document.querySelectorAll('[data-mapping-name]'))
+    .map(item => item.value.trim())
+    .filter(Boolean);
+}
+
+function syncMappingText() {
+  const mapping = document.getElementById('mapping_text');
+  if (!mapping) return;
+  mapping.value = getMappingNames().join('\n');
+}
+
+function renderMappingTags(names = []) {
+  const container = document.getElementById('mappingTags');
+  if (!container) return;
+  container.innerHTML = '';
+  names.forEach((name, index) => {
+    container.appendChild(createMappingTag(name, index));
+  });
+  if (!names.length) {
+    container.innerHTML = '<div class="path-preview empty">还没有类别，点击“添加类别”开始配置</div>';
+  }
+  syncMappingText();
+}
+
+function createMappingTag(name = '', index = 0) {
+  const row = document.createElement('div');
+  row.className = 'mapping-row d-flex align-items-center gap-2';
+  row.dataset.mappingRow = '1';
+  row.innerHTML = `
+    <span class="badge text-bg-primary" style="min-width: 44px;">${index}</span>
+    <input type="text" class="form-control" data-mapping-name placeholder="输入类别名" value="${name.replace(/"/g, '&quot;')}">
+    <button type="button" class="btn btn-outline-danger btn-sm" data-action="remove">删除</button>
+  `;
+
+  row.querySelector('[data-mapping-name]')?.addEventListener('input', syncMappingText);
+  row.querySelector('[data-action="remove"]')?.addEventListener('click', () => {
+    row.remove();
+    refreshMappingIndexes();
+  });
+  return row;
+}
+
+function refreshMappingIndexes() {
+  const container = document.getElementById('mappingTags');
+  if (!container) return;
+  const rows = Array.from(container.querySelectorAll('[data-mapping-row]'));
+  rows.forEach((row, index) => {
+    const badge = row.querySelector('.badge');
+    if (badge) badge.textContent = index;
+  });
+  if (!rows.length) {
+    container.innerHTML = '<div class="path-preview empty">还没有类别，点击“添加类别”开始配置</div>';
+  }
+  syncMappingText();
+}
+
+function addMappingTag(name = '') {
+  const container = document.getElementById('mappingTags');
+  if (!container) return;
+  if (container.querySelector('.path-preview.empty')) container.innerHTML = '';
+  container.appendChild(createMappingTag(name, container.querySelectorAll('[data-mapping-row]').length));
+  refreshMappingIndexes();
+  syncMappingText();
+}
+
+function clearMappingTags() {
+  renderMappingTags([]);
+}
+
+function loadMappingExample() {
+  renderMappingTags(['person', 'car', 'bicycle']);
+}
+
 async function uploadModel() {
   const sourceModelPath = document.getElementById('upload_model_input')?.value.trim();
   const modelsDir = document.getElementById('models_dir')?.value || 'models';
@@ -349,6 +431,26 @@ window.addEventListener('pageshow', () => {
   if (autoLabelBusy) hideAutoLabelOverlay();
 });
 {% endif %}
+
+const initialMappingText = document.getElementById('mapping_text')?.value || '';
+const initialMappingNames = initialMappingText.split('\n').map(item => item.trim()).filter(Boolean);
+renderMappingTags(initialMappingNames.length ? initialMappingNames : ['person', 'car', 'bicycle']);
+
+autoLabelForm?.addEventListener('submit', (event) => {
+  const mappingNames = getMappingNames();
+  if (!mappingNames.length) {
+    event.preventDefault();
+    alert('请先添加至少一个类别');
+    return;
+  }
+  syncMappingText();
+  showAutoLabelOverlay();
+});
+
+autoLabelResultConfirmBtn?.addEventListener('click', hideAutoLabelResultOverlay);
+window.addEventListener('pageshow', () => {
+  if (autoLabelBusy) hideAutoLabelOverlay();
+});
 
 refreshModelList();
 </script>

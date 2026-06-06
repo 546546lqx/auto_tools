@@ -11,7 +11,6 @@
   const autoLabelResultText = document.getElementById('autoLabelResultText');
   const autoLabelResultConfirmBtn = document.getElementById('autoLabelResultConfirmBtn');
   let autoLabelBusy = false;
-  let autoLabelResultDismissTimer = null;
 
   function showAutoLabelOverlay(message) {
     if (autoLabelOverlayText) autoLabelOverlayText.textContent = message || '任务正在后台运行，请稍候。完成后会自动提示结果，期间其他区域将无法点击。';
@@ -19,6 +18,11 @@
     document.body.classList.add('auto-label-busy');
     autoLabelBusy = true;
     if (autoLabelSubmitBtn) { autoLabelSubmitBtn.disabled = true; autoLabelSubmitBtn.textContent = '正在标注...'; }
+  }
+
+  function setMappingExample(text) {
+    const mapping = document.getElementById('mapping_text');
+    if (mapping) mapping.value = text;
   }
 
   function hideAutoLabelOverlay() {
@@ -52,6 +56,7 @@
   }
 
   window.refreshModelList = refreshModelList;
+  window.setMappingExample = setMappingExample;
   window.pickPath = window.pickPath;
   window.uploadModel = window.uploadModel;
 

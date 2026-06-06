@@ -133,25 +133,12 @@ class AutoLabelService:
         return candidate
 
     def _parse_mapping_text(self, text: str) -> dict[str, int]:
-        mapping: dict[str, int] = {}
-        for raw_line in text.splitlines():
-            line = raw_line.strip()
-            if not line:
-                continue
-            if '-->' in line:
-                left, right = line.split('-->', 1)
-            elif '->' in line:
-                left, right = line.split('->', 1)
-            elif ':' in line:
-                left, right = line.split(':', 1)
-            else:
-                raise ValueError(f'无法解析映射行：{line}')
-            name = left.strip()
-            if not name:
-                raise ValueError(f'类别名不能为空：{line}')
-            idx = int(right.strip())
-            mapping[name] = idx
-        return dict(sorted(mapping.items(), key=lambda item: item[1]))
+        names = [line.strip() for line in text.splitlines() if line.strip()]
+        if not names:
+            return {}
+        if len(names) != len(set(names)):
+            raise ValueError('类别名不能重复')
+        return {name: index for index, name in enumerate(names)}
 
     def _mapping_to_classes_text(self, mapping: dict[str, int]) -> str:
         if not mapping:
