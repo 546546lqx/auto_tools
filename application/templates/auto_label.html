@@ -244,6 +244,50 @@ function showAutoLabelResultOverlay(success, message) {
   document.body.classList.add('auto-label-busy');
 }
 
+async function pickPath(targetInputId, mode = 'directory') {
+  const input = document.getElementById(targetInputId);
+  if (!input) return;
+
+  const currentValue = input.value || '';
+  const pickerOptions = mode === 'file' ? { multiple: false, types: [] } : { multiple: false };
+  let selectedPath = '';
+
+  if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.pick_path === 'function') {
+    try {
+      selectedPath = await window.pywebview.api.pick_path({ target: targetInputId, mode, current_path: currentValue });
+    } catch (error) {
+      alert(error?.message || '选择路径失败');
+      return;
+    }
+  } else if (window.showOpenFilePicker) {
+    try {
+      const handles = await window.showOpenFilePicker(pickerOptions);
+      if (handles && handles.length) {
+        const handle = handles[0];
+        selectedPath = handle.name || '';
+      }
+    } catch (error) {
+      if (error && error.name !== 'AbortError') {
+        alert(error?.message || '选择路径失败');
+      }
+      return;
+    }
+  } else {
+    const fallback = window.prompt(mode === 'file' ? '请输入模型文件路径' : '请输入文件夹路径', currentValue);
+    if (fallback !== null) selectedPath = fallback.trim();
+  }
+
+  if (!selectedPath) return;
+  input.value = selectedPath;
+
+  const previewId = `${targetInputId}_preview`;
+  const preview = document.getElementById(previewId);
+  if (preview) {
+    preview.textContent = selectedPath;
+    preview.classList.remove('empty');
+  }
+}
+
 async function refreshModelList(selectPreferredPath = '') {
   const modelsDir = document.getElementById('models_dir')?.value || 'models';
   const resp = await fetch(`/api/auto-label/models?models_dir=${encodeURIComponent(modelsDir)}`);
