@@ -28,6 +28,7 @@ def auto_label_submit():
             labels_dir=request.form.get('labels_dir', '').strip(),
             model_path=request.form.get('model_path', '').strip(),
             mapping_text=request.form.get('mapping_text', '').strip(),
+            class_thresholds_text=request.form.get('class_thresholds_text', '').strip(),
         )
         return render_template('auto_label.html', result={'success': True, 'message': '自动标注完成', 'data': result}, form=request.form, models=service.list_models(request.form.get('models_dir', '').strip() or 'models'))
     except Exception as exc:

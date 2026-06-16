@@ -61,6 +61,7 @@ class AutoLabelService:
         labels_dir: str,
         model_path: str,
         mapping_text: str,
+        class_thresholds_text: str = '',
         classes_output_name: str = 'classes.txt',
         overwrite: bool = True,
     ) -> dict:
@@ -81,6 +82,7 @@ class AutoLabelService:
         mapping = self._parse_mapping_text(mapping_text)
         if not mapping:
             raise ValueError('请填写类别映射关系，例如：person-->0\ncar-->1')
+        thresholds = self._parse_class_thresholds_text(class_thresholds_text, mapping)
 
         classes_file = labels_path / classes_output_name
         classes_text = self._mapping_to_classes_text(mapping)
@@ -99,7 +101,7 @@ class AutoLabelService:
             label_file.parent.mkdir(parents=True, exist_ok=True)
 
             predictions = predictor.predict(str(image_file))
-            lines = self._predictions_to_yolo_lines(predictions, mapping)
+            lines = self._predictions_to_yolo_lines(predictions, mapping, thresholds)
             if lines:
                 label_file.write_text('\n'.join(lines) + '\n', encoding='utf-8')
             else:
@@ -117,6 +119,7 @@ class AutoLabelService:
             'empty_labels': empty_labels,
             'created_labels': created_labels,
             'mapping': mapping,
+            'thresholds': thresholds,
         }
 
     def _collect_images(self, images_path: Path) -> list[Path]:
@@ -139,6 +142,30 @@ class AutoLabelService:
         if len(names) != len(set(names)):
             raise ValueError('类别名不能重复')
         return {name: index for index, name in enumerate(names)}
+
+    def _parse_class_thresholds_text(self, text: str, mapping: dict[str, int]) -> dict[str, float]:
+        thresholds = {name: 0.25 for name in mapping}
+        if not text.strip():
+            return thresholds
+        for raw_line in text.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            if '=' not in line:
+                raise ValueError('类别阈值格式应为：类别名=0.25')
+            name, value_text = [part.strip() for part in line.split('=', 1)]
+            if not name:
+                raise ValueError('类别阈值格式应为：类别名=0.25')
+            if name not in mapping:
+                raise ValueError(f'类别阈值中包含未定义类别：{name}')
+            try:
+                value = float(value_text)
+            except ValueError as exc:
+                raise ValueError(f'类别阈值不是有效数字：{name}={value_text}') from exc
+            if value < 0 or value > 1:
+                raise ValueError(f'类别阈值必须介于 0 到 1 之间：{name}={value_text}')
+            thresholds[name] = value
+        return thresholds
 
     def _mapping_to_classes_text(self, mapping: dict[str, int]) -> str:
         if not mapping:
@@ -172,7 +199,7 @@ class AutoLabelService:
 
         return _Predictor(model)
 
-    def _predictions_to_yolo_lines(self, predictions: Iterable, mapping: dict[str, int]) -> list[str]:
+    def _predictions_to_yolo_lines(self, predictions: Iterable, mapping: dict[str, int], thresholds: dict[str, float]) -> list[str]:
         lines: list[str] = []
         allowed_names = {name.lower(): idx for name, idx in mapping.items()}
         for result in predictions:
@@ -181,16 +208,21 @@ class AutoLabelService:
                 continue
             xywhn = getattr(boxes, 'xywhn', None)
             cls_list = getattr(boxes, 'cls', None)
+            conf_list = getattr(boxes, 'conf', None)
             if xywhn is None or cls_list is None:
                 continue
             names = getattr(result, 'names', None)
             xywhn_data = xywhn.tolist() if hasattr(xywhn, 'tolist') else xywhn
             cls_data = cls_list.tolist() if hasattr(cls_list, 'tolist') else cls_list
-            for box, cls_id in zip(xywhn_data, cls_data):
+            conf_data = conf_list.tolist() if hasattr(conf_list, 'tolist') else conf_list if conf_list is not None else [None] * len(cls_data)
+            for box, cls_id, conf in zip(xywhn_data, cls_data, conf_data):
                 cls_id_int = int(cls_id)
                 class_name = self._resolve_class_name(names, cls_id_int)
                 mapped_id = allowed_names.get(class_name.lower()) if class_name else None
                 if mapped_id is None:
+                    continue
+                threshold = thresholds.get(class_name, thresholds.get(class_name.lower(), 0.25)) if class_name else 0.25
+                if conf is not None and float(conf) < threshold:
                     continue
                 x, y, w, h = [float(v) for v in box]
                 lines.append(f'{mapped_id} {x:.6f} {y:.6f} {w:.6f} {h:.6f}')

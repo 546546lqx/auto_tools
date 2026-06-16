@@ -120,16 +120,32 @@
           </div>
 
           <div>
-            <label class="form-label">映射关系</label>
-            <div class="card card-soft p-3">
-              <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-                <button type="button" class="btn btn-primary btn-sm" onclick="addMappingTag()">+ 添加类别</button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadMappingExample()">载入示例</button>
-                <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearMappingTags()">清空</button>
+            <label class="form-label">类别与阈值</label>
+            <div class="card card-soft p-3 class-threshold-card">
+              <div class="class-threshold-toolbar">
+                <div class="class-threshold-toolbar-left">
+                  <span class="badge bg-primary rounded-pill px-3 py-2">推荐</span>
+                  <div>
+                    <div class="fw-bold">逐行配置类别与阈值</div>
+                    <div class="small text-muted">一行一个类别，阈值会直接参与后端过滤。</div>
+                  </div>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                  <button type="button" class="btn btn-primary btn-sm" onclick="addClassRow()">+ 添加类别</button>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadMappingExample()">载入示例</button>
+                  <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearClassRows()">清空</button>
+                </div>
               </div>
-              <div id="mappingTags" class="d-flex flex-column gap-2"></div>
-              <div class="form-text mt-3">拖拽排序会自动决定编号顺序，第一项对应 0，第二项对应 1，以此类推。</div>
+              <div class="class-threshold-head d-none d-md-grid">
+                <span>序号</span>
+                <span>类别名</span>
+                <span>阈值</span>
+                <span></span>
+              </div>
+              <div id="classRows" class="class-threshold-list"></div>
+              <div class="class-threshold-hint">阈值范围建议为 0.10 ~ 0.60。越高越严格，越低越容易保留目标。</div>
               <input type="hidden" name="mapping_text" id="mapping_text" value="{{ form.get('mapping_text', 'person\ncar\nbicycle') }}" required>
+              <input type="hidden" name="class_thresholds_text" id="class_thresholds_text" value="{{ form.get('class_thresholds_text', '') }}">
             </div>
           </div>
 
@@ -314,78 +330,110 @@ async function refreshModelList(selectPreferredPath = '') {
   if (selectPreferredPath) select.value = selectPreferredPath;
 }
 
-function getMappingNames() {
-  return Array.from(document.querySelectorAll('[data-mapping-name]'))
-    .map(item => item.value.trim())
-    .filter(Boolean);
+function getClassRows() {
+  return Array.from(document.querySelectorAll('[data-class-row]'));
 }
 
 function syncMappingText() {
   const mapping = document.getElementById('mapping_text');
   if (!mapping) return;
-  mapping.value = getMappingNames().join('\n');
+  mapping.value = getClassRows()
+    .map(row => row.querySelector('[data-class-name]')?.value.trim())
+    .filter(Boolean)
+    .join('\n');
 }
 
-function renderMappingTags(names = []) {
-  const container = document.getElementById('mappingTags');
-  if (!container) return;
-  container.innerHTML = '';
-  names.forEach((name, index) => {
-    container.appendChild(createMappingTag(name, index));
-  });
-  if (!names.length) {
-    container.innerHTML = '<div class="path-preview empty">还没有类别，点击“添加类别”开始配置</div>';
-  }
-  syncMappingText();
+function syncThresholdText() {
+  const hidden = document.getElementById('class_thresholds_text');
+  if (!hidden) return;
+  hidden.value = getClassRows()
+    .map(row => {
+      const name = row.querySelector('[data-class-name]')?.value.trim();
+      const value = row.querySelector('[data-class-threshold]')?.value.trim() || '0.25';
+      return name ? `${name}=${value}` : '';
+    })
+    .filter(Boolean)
+    .join('\n');
 }
 
-function createMappingTag(name = '', index = 0) {
+function createClassRow(name = '', value = '0.25', index = 0) {
   const row = document.createElement('div');
-  row.className = 'mapping-row d-flex align-items-center gap-2';
-  row.dataset.mappingRow = '1';
+  row.className = 'class-threshold-row';
+  row.dataset.classRow = '1';
   row.innerHTML = `
-    <span class="badge text-bg-primary" style="min-width: 44px;">${index}</span>
-    <input type="text" class="form-control" data-mapping-name placeholder="输入类别名" value="${name.replace(/"/g, '&quot;')}">
-    <button type="button" class="btn btn-outline-danger btn-sm" data-action="remove">删除</button>
+    <div class="class-threshold-index">${index}</div>
+    <div class="class-threshold-input-wrap">
+      <label class="class-threshold-label d-md-none">类别名</label>
+      <input type="text" class="form-control class-threshold-input" data-class-name placeholder="输入类别名" value="${name.replace(/"/g, '&quot;')}">
+    </div>
+    <div class="class-threshold-input-wrap">
+      <label class="class-threshold-label d-md-none">阈值</label>
+      <input type="number" class="form-control class-threshold-input" data-class-threshold min="0" max="1" step="0.01" value="${value}">
+    </div>
+    <button type="button" class="btn btn-outline-danger btn-sm class-threshold-remove" data-action="remove">删除</button>
   `;
-
-  row.querySelector('[data-mapping-name]')?.addEventListener('input', syncMappingText);
+  row.querySelector('[data-class-name]')?.addEventListener('input', () => {
+    syncMappingText();
+    syncThresholdText();
+    refreshClassIndexes();
+  });
+  row.querySelector('[data-class-threshold]')?.addEventListener('input', syncThresholdText);
   row.querySelector('[data-action="remove"]')?.addEventListener('click', () => {
     row.remove();
-    refreshMappingIndexes();
+    refreshClassIndexes();
+    syncMappingText();
+    syncThresholdText();
   });
   return row;
 }
 
-function refreshMappingIndexes() {
-  const container = document.getElementById('mappingTags');
+function renderClassRows(rows = []) {
+  const container = document.getElementById('classRows');
   if (!container) return;
-  const rows = Array.from(container.querySelectorAll('[data-mapping-row]'));
+  container.innerHTML = '';
+  if (!rows.length) {
+    container.innerHTML = '<div class="class-threshold-empty">点击“添加类别”开始配置类别和阈值</div>';
+    syncMappingText();
+    syncThresholdText();
+    return;
+  }
+  rows.forEach(({name, value}, index) => container.appendChild(createClassRow(name, value, index)));
+  syncMappingText();
+  syncThresholdText();
+}
+
+function refreshClassIndexes() {
+  const rows = getClassRows();
   rows.forEach((row, index) => {
-    const badge = row.querySelector('.badge');
+    const badge = row.querySelector('.class-threshold-index');
     if (badge) badge.textContent = index;
   });
   if (!rows.length) {
-    container.innerHTML = '<div class="path-preview empty">还没有类别，点击“添加类别”开始配置</div>';
+    const container = document.getElementById('classRows');
+    if (container) container.innerHTML = '<div class="class-threshold-empty">点击“添加类别”开始配置类别和阈值</div>';
   }
-  syncMappingText();
 }
 
-function addMappingTag(name = '') {
-  const container = document.getElementById('mappingTags');
+function addClassRow(name = '', value = '0.25') {
+  const container = document.getElementById('classRows');
   if (!container) return;
-  if (container.querySelector('.path-preview.empty')) container.innerHTML = '';
-  container.appendChild(createMappingTag(name, container.querySelectorAll('[data-mapping-row]').length));
-  refreshMappingIndexes();
+  if (container.querySelector('.class-threshold-empty')) container.innerHTML = '';
+  container.appendChild(createClassRow(name, value, container.querySelectorAll('[data-class-row]').length));
+  refreshClassIndexes();
   syncMappingText();
+  syncThresholdText();
 }
 
-function clearMappingTags() {
-  renderMappingTags([]);
+function clearClassRows() {
+  renderClassRows([]);
 }
 
 function loadMappingExample() {
-  renderMappingTags(['person', 'car', 'bicycle']);
+  renderClassRows([
+    {name: 'person', value: '0.25'},
+    {name: 'car', value: '0.35'},
+    {name: 'bicycle', value: '0.30'},
+  ]);
 }
 
 async function uploadModel() {
@@ -409,12 +457,6 @@ async function uploadModel() {
   alert(data.message || '上传成功');
 }
 
-if (autoLabelForm) {
-  autoLabelForm.addEventListener('submit', () => {
-    showAutoLabelOverlay();
-  });
-}
-
 if (autoLabelResultConfirmBtn) {
   autoLabelResultConfirmBtn.addEventListener('click', () => {
     hideAutoLabelResultOverlay();
@@ -433,17 +475,28 @@ window.addEventListener('pageshow', () => {
 {% endif %}
 
 const initialMappingText = document.getElementById('mapping_text')?.value || '';
+const initialThresholdText = document.getElementById('class_thresholds_text')?.value || '';
 const initialMappingNames = initialMappingText.split('\n').map(item => item.trim()).filter(Boolean);
-renderMappingTags(initialMappingNames.length ? initialMappingNames : ['person', 'car', 'bicycle']);
+const initialThresholdMap = {};
+initialThresholdText.split('\n').map(item => item.trim()).filter(Boolean).forEach(line => {
+  const [name, value] = line.split('=');
+  if (name) initialThresholdMap[name.trim()] = (value || '0.25').trim();
+});
+const initialRows = (initialMappingNames.length ? initialMappingNames : ['person', 'car', 'bicycle']).map(name => ({
+  name,
+  value: initialThresholdMap[name] || '0.25',
+}));
+renderClassRows(initialRows);
 
 autoLabelForm?.addEventListener('submit', (event) => {
-  const mappingNames = getMappingNames();
-  if (!mappingNames.length) {
+  const classRows = getClassRows();
+  if (!classRows.length) {
     event.preventDefault();
     alert('请先添加至少一个类别');
     return;
   }
   syncMappingText();
+  syncThresholdText();
   showAutoLabelOverlay();
 });
 
