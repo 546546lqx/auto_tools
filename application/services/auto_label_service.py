@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-from application.utils.file_helper import require_existing_path, require_text
+from application.utils.file_helper import require_existing_directory, require_existing_path
 
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff', '.webp'}
 MODEL_EXTENSIONS = {'.pt', '.onnx', '.engine', '.tflite'}
@@ -72,9 +72,8 @@ class AutoLabelService:
             FileNotFoundError: if any required path does not exist.
             RuntimeError: if the model cannot be loaded or inference fails.
         """
-        images_path = require_existing_path(images_dir, 'images 文件夹')
-        labels_path = Path(require_text(labels_dir, 'labels 文件夹'))
-        labels_path.mkdir(parents=True, exist_ok=True)
+        images_path = require_existing_directory(images_dir, 'images 文件夹')
+        labels_path = require_existing_directory(labels_dir, 'labels 文件夹')
         model_file = require_existing_path(model_path, '模型文件')
         if not model_file.is_file():
             raise FileNotFoundError(f'模型文件不存在：{model_file}')

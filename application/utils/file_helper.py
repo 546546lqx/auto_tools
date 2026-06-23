@@ -14,6 +14,13 @@ def require_existing_path(value: str | None, label: str) -> Path:
     return path
 
 
+def require_existing_directory(value: str | None, label: str) -> Path:
+    path = require_existing_path(value, label)
+    if not path.is_dir():
+        raise NotADirectoryError(f'路径不是文件夹：{path}')
+    return path
+
+
 def require_text(value: str | None, label: str) -> str:
     text = (value or "").strip()
     if not text:
