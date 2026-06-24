@@ -14,7 +14,7 @@
     </div>
   </section>
 
-  <section class="stats-content-grid auto-label-content-grid">
+  <section class="auto-label-stack">
     <div class="card stats-panel auto-label-form-panel" id="autoLabelFormPanel">
       <div class="panel-heading">
         <div>
@@ -112,38 +112,105 @@
       </form>
     </div>
 
-    <div class="card stats-panel auto-label-help-panel">
-      <div class="panel-heading">
+    <div class="card stats-panel auto-label-help-panel auto-label-note-panel">
+      <div class="panel-heading compact">
         <div>
           <div class="eyebrow dark">Tips</div>
           <h2>使用说明</h2>
         </div>
-        <span class="badge bg-light text-dark rounded-pill">Guidance</span>
       </div>
-      <div class="empty-state auto-label-empty">点击上方“开始标注”会自动滚动到这里，选择目录、模型并提交后即可生成结果。</div>
-      {% if result and result.data %}
-      <div class="card card-soft p-3 mt-3">
-        <div class="mb-2 fw-bold">结果详情</div>
-        <pre>{{ result.data | tojson(indent=2) }}</pre>
+      <div class="auto-label-note-list">
+        <div class="auto-label-note-item">先填写 images 与 labels 路径，再选择模型。</div>
+        <div class="auto-label-note-item">类别和阈值支持逐行添加，保存后会按顺序处理。</div>
+        <div class="auto-label-note-item">提交后会自动生成 YOLO 标注文件与统计结果。</div>
       </div>
-      {% endif %}
-      <div class="card card-soft p-3 mt-3">
-        <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
-          <div class="fw-bold">models 文件夹模型列表</div>
-          <span class="small text-muted" id="models_dir_label">{{ models.models_dir if models else 'models' }}</span>
+    </div>
+
+    {% if result and result.data %}
+    {% set result_data = result.data %}
+    <div class="result-summary-card card card-soft p-3">
+      <div class="result-summary-header">
+        <div>
+          <div class="eyebrow dark">Result</div>
+          <div class="fw-bold">结果详情</div>
         </div>
-        <div id="modelsList" class="d-flex flex-column gap-2">
-          {% if models and models.models %}
-            {% for model in models.models %}
-            <div class="path-preview">
-              <strong>{{ model.name }}</strong>
-              <div class="small text-muted">{{ model.relative_path }}</div>
-            </div>
+        <span class="badge {{ 'bg-success' if result.success else 'bg-danger' }} rounded-pill">{{ '成功' if result.success else '失败' }}</span>
+      </div>
+      {% if result.message %}
+      <div class="result-summary-message {{ 'success' if result.success else 'danger' }}">{{ result.message }}</div>
+      {% endif %}
+      <div class="result-metrics-grid">
+        <div class="result-metric"><span>图片数量</span><strong>{{ result_data.images_count if result_data.images_count is defined else 0 }}</strong></div>
+        <div class="result-metric"><span>标签数量</span><strong>{{ result_data.labels_count if result_data.labels_count is defined else 0 }}</strong></div>
+        <div class="result-metric"><span>空标签</span><strong>{{ result_data.empty_labels|length if result_data.empty_labels is defined else 0 }}</strong></div>
+        <div class="result-metric"><span>类别数</span><strong>{{ result_data.mapping|length if result_data.mapping is defined else 0 }}</strong></div>
+      </div>
+      <div class="result-detail-grid">
+        <div class="result-detail-item"><span>images_dir</span><strong>{{ result_data.images_dir if result_data.images_dir is defined else '-' }}</strong></div>
+        <div class="result-detail-item"><span>labels_dir</span><strong>{{ result_data.labels_dir if result_data.labels_dir is defined else '-' }}</strong></div>
+        <div class="result-detail-item"><span>model_path</span><strong>{{ result_data.model_path if result_data.model_path is defined else '-' }}</strong></div>
+        <div class="result-detail-item"><span>classes_file</span><strong>{{ result_data.classes_file if result_data.classes_file is defined else '-' }}</strong></div>
+      </div>
+      <div class="result-section">
+        <div class="result-section-title">类别映射</div>
+        <div class="result-chip-list">
+          {% for name, idx in (result_data.mapping.items() if result_data.mapping is defined else []) %}
+          <span class="result-chip">{{ name }} → {{ idx }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="result-section">
+        <div class="result-section-title">阈值配置</div>
+        <div class="result-chip-list">
+          {% for name, value in (result_data.thresholds.items() if result_data.thresholds is defined else []) %}
+          <span class="result-chip">{{ name }} = {{ '%.2f'|format(value) }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="result-section">
+        <div class="result-section-title">生成文件</div>
+        <div class="result-file-list">
+          {% if result_data.created_labels is defined and result_data.created_labels %}
+            {% for label in result_data.created_labels %}
+            <div class="result-file-item">{{ label }}</div>
             {% endfor %}
           {% else %}
-            <div class="path-preview empty">当前 models 文件夹中没有可用模型</div>
+            <div class="result-file-empty">没有生成可显示的标签文件</div>
           {% endif %}
         </div>
+      </div>
+      {% if result_data.empty_labels is defined and result_data.empty_labels %}
+      <div class="result-section">
+        <div class="result-section-title">未检测到目标的标签文件</div>
+        <div class="result-file-list">
+          {% for label in result_data.empty_labels %}
+          <div class="result-file-item muted">{{ label }}</div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="card card-soft p-3 auto-label-model-panel">
+      <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+        <div>
+          <div class="eyebrow dark">Models</div>
+          <div class="fw-bold">模型列表</div>
+        </div>
+        <span class="small text-muted" id="models_dir_label">{{ models.models_dir if models else 'models' }}</span>
+      </div>
+      <div id="modelsList" class="auto-label-model-list">
+        {% if models and models.models %}
+          {% for model in models.models %}
+          <div class="path-preview auto-label-model-item">
+            <strong>{{ model.name }}</strong>
+            <div class="small text-muted">{{ model.relative_path }}</div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="path-preview empty">当前 models 文件夹中没有可用模型</div>
+        {% endif %}
       </div>
     </div>
   </section>
